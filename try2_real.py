@@ -137,59 +137,34 @@ st.set_page_config(
 )
 
 # ============================================================
-# CUSTOM CSS – Premium Dark Executive Theme
+# CUSTOM CSS – Premium L&T-Aligned Dark Executive Theme
 # ============================================================
 
-theme_mode = st.sidebar.radio("UI Theme", ["Dark Mode", "Light Mode"], horizontal=True)
-
-if theme_mode == "Light Mode":
-    BG = "#F8F9FA"
-    BG_SIDEBAR_START = "#F3F4F6"
-    BG_SIDEBAR_END = "#E5E7EB"
-    TEXT = "#1F2937"
-    MUTED = "#6B7280"
-    CARD_START = "#FFFFFF"
-    CARD_END = "#F8F9FA"
-    BORDER = "#E5E7EB"
-    BORDER_HOVER = "#D9480F"
-    ORANGE = "#D9480F"
-    GREEN = "#16A34A"
-    RED = "#DC2626"
-    TEAL = "#0F766E"
-    BLUE = "#2563EB"
-    AMBER = "#D97706"
-    TABLE_HEADER_BG = "#F3F4F6"
-    TABLE_ROW_EVEN = "#F9FAFB"
-    TABLE_ROW_HOVER = "rgba(217,72,15,0.06)"
-    CHART_BG = "#FFFFFF"
-    CHART_PAPER = "#F8F9FA"
-    GRAY = "#E5E7EB"
-    INPUT_BG = "#FFFFFF"
-    INPUT_BORDER = "#D1D5DB"
-else:
-    BG = "{BG}"
-    BG_SIDEBAR_START = "{BG_SIDEBAR_START}"
-    BG_SIDEBAR_END = "{BG}"
-    TEXT = "{TEXT}"
-    MUTED = "{MUTED}"
-    CARD_START = "{CARD_START}"
-    CARD_END = "{CARD_END}"
-    BORDER = "{GRAY}"
-    BORDER_HOVER = "{ORANGE}"
-    ORANGE = "{ORANGE}"
-    GREEN = "{GREEN}"
-    RED = "{RED}"
-    TEAL = "{TEAL}"
-    BLUE = "{BLUE}"
-    AMBER = "{AMBER}"
-    TABLE_HEADER_BG = "{CARD_END}"
-    TABLE_ROW_EVEN = "{CARD_START}"
-    TABLE_ROW_HOVER = "rgba(232,97,26,0.06)"
-    CHART_BG = "{CARD_START}"
-    CHART_PAPER = "{BG}"
-    GRAY = "{GRAY}"
-    INPUT_BG = "{CARD_START}"
-    INPUT_BORDER = "{GRAY}"
+# ── Always use fixed hex values — no runtime placeholders ──
+# L&T brand: Deep Navy + Signature Orange
+BG               = "#0A0E1A"   # deep navy-black
+BG_SIDEBAR_START = "#0F1525"
+BG_SIDEBAR_END   = "#0A0E1A"
+TEXT             = "#E8EDF5"
+MUTED            = "#7B8A9E"
+CARD_START       = "#111827"
+CARD_END         = "#1A2235"
+BORDER           = "#1E2D45"
+BORDER_HOVER     = "#E8611A"
+ORANGE           = "#E8611A"   # L&T signature orange
+GREEN            = "#22C55E"
+RED              = "#EF4444"
+TEAL             = "#14B8A6"
+BLUE             = "#3B82F6"
+AMBER            = "#F59E0B"
+TABLE_HEADER_BG  = "#1A2235"
+TABLE_ROW_EVEN   = "#111827"
+TABLE_ROW_HOVER  = "rgba(232,97,26,0.08)"
+CHART_BG         = "#111827"
+CHART_PAPER      = "#0A0E1A"
+GRAY             = "#1E2D45"
+INPUT_BG         = "#111827"
+INPUT_BORDER     = "#1E2D45"
 
 st.markdown(f'''
 <style>
@@ -198,8 +173,8 @@ st.markdown(f'''
   /* ── Base ── */
   html, body, [class*="css"] {{
     font-family: 'Space Grotesk', sans-serif;
-    background-color: {BG};
-    color: {TEXT};
+    background-color: #0A0E1A;
+    color: #E8EDF5;
   }}
   .stApp {{ background: {BG}; }}
 
@@ -211,35 +186,35 @@ st.markdown(f'''
   [data-testid="stSidebar"] .stMarkdown h1,
   [data-testid="stSidebar"] .stMarkdown h2,
   [data-testid="stSidebar"] .stMarkdown h3 {{
-    color: {ORANGE};
+    color: #E8611A;
   }}
 
   /* ── Metric cards ── */
   .metric-card {{
     background: linear-gradient(135deg, {CARD_START} 0%, {CARD_END} 100%);
-    border: 1px solid {BORDER};
+    border: 1px solid #1E2D45;
     border-radius: 12px;
     padding: 20px 24px;
     margin: 6px 0;
     transition: border-color 0.2s;
   }}
-  .metric-card:hover {{ border-color: {ORANGE}; }}
+  .metric-card:hover {{ border-color: #E8611A; }}
   .metric-value {{
     font-size: 2.2rem;
     font-weight: 700;
-    color: {ORANGE};
+    color: #E8611A;
     font-family: 'JetBrains Mono', monospace;
     line-height: 1.1;
   }}
   .metric-label {{
     font-size: 0.78rem;
-    color: {MUTED};
+    color: #7B8A9E;
     text-transform: uppercase;
     letter-spacing: 1px;
     margin-top: 4px;
   }}
-  .metric-delta-pos {{ color: {GREEN}; font-size: 0.85rem; font-weight: 600; }}
-  .metric-delta-neg {{ color: {RED}; font-size: 0.85rem; font-weight: 600; }}
+  .metric-delta-pos {{ color: #22C55E; font-size: 0.85rem; font-weight: 600; }}
+  .metric-delta-neg {{ color: #EF4444; font-size: 0.85rem; font-weight: 600; }}
 
   /* ── Section headers ── */
   .section-header {{
@@ -251,7 +226,7 @@ st.markdown(f'''
     font-weight: 700;
     letter-spacing: 0.5px;
     text-transform: uppercase;
-    color: {TEXT} !important;
+    color: #E8EDF5 !important;
   }}
 
   /* ── Alert / callout boxes ── */
@@ -296,7 +271,7 @@ st.markdown(f'''
     line-height: 1.05;
   }}
   .hero-sub {{
-    color: {MUTED};
+    color: #7B8A9E;
     font-size: 1rem;
     letter-spacing: 2px;
     text-transform: uppercase;
@@ -305,8 +280,8 @@ st.markdown(f'''
   .hero-tag {{
     display: inline-block;
     background: rgba(232, 97, 26, 0.15);
-    border: 1px solid {ORANGE};
-    color: {ORANGE};
+    border: 1px solid #E8611A;
+    color: #E8611A;
     padding: 3px 12px;
     border-radius: 20px;
     font-size: 0.75rem;
@@ -325,7 +300,7 @@ st.markdown(f'''
   }}
   .custom-table th {{
     background: {TABLE_HEADER_BG};
-    color: {ORANGE};
+    color: #E8611A;
     padding: 10px 14px;
     text-align: left;
     font-weight: 600;
@@ -335,17 +310,17 @@ st.markdown(f'''
   .custom-table td {{
     padding: 9px 14px;
     border-bottom: 1px solid {BORDER};
-    color: {TEXT};
+    color: #E8EDF5;
   }}
   .custom-table tr:nth-child(even) td {{ background: {TABLE_ROW_EVEN}; }}
   .custom-table tr:hover td {{ background: {TABLE_ROW_HOVER}; }}
-  .td-green {{ color: {GREEN} !important; font-weight: 600; }}
-  .td-orange {{ color: {ORANGE} !important; font-weight: 700; }}
+  .td-green {{ color: #22C55E !important; font-weight: 600; }}
+  .td-orange {{ color: #E8611A !important; font-weight: 700; }}
 
   /* ── Plotly chart container ── */
   .chart-container {{
     background: {CARD_START};
-    border: 1px solid {BORDER};
+    border: 1px solid #1E2D45;
     border-radius: 12px;
     padding: 4px;
     margin: 8px 0;
@@ -361,10 +336,10 @@ st.markdown(f'''
     letter-spacing: 0.5px;
     margin: 3px 2px;
   }}
-  .phase-0 {{ background: rgba(13,148,136,0.2); color: {TEAL}; border: 1px solid {TEAL}; }}
-  .phase-1 {{ background: rgba(232,97,26,0.2); color: {ORANGE}; border: 1px solid {ORANGE}; }}
-  .phase-2 {{ background: rgba(26,43,74,0.4); color: {BLUE}; border: 1px solid {BLUE}; }}
-  .phase-3 {{ background: rgba(245,166,35,0.2); color: {AMBER}; border: 1px solid {AMBER}; }}
+  .phase-0 {{ background: rgba(13,148,136,0.2); color: #14B8A6; border: 1px solid #14B8A6; }}
+  .phase-1 {{ background: rgba(232,97,26,0.2); color: #E8611A; border: 1px solid #E8611A; }}
+  .phase-2 {{ background: rgba(26,43,74,0.4); color: #3B82F6; border: 1px solid #3B82F6; }}
+  .phase-3 {{ background: rgba(245,166,35,0.2); color: #F59E0B; border: 1px solid #F59E0B; }}
 
   /* ── Divider ── */
   .orange-divider {{
@@ -376,16 +351,16 @@ st.markdown(f'''
 
   /* ── Streamlit overrides ── */
   .stSlider > div > div > div > div {{ background: {ORANGE} !important; }}
-  .stSelectbox > div > div {{ background: {INPUT_BG}; border-color: {INPUT_BORDER}; }}
-  .stNumberInput > div > div > input {{ background: {INPUT_BG}; border-color: {INPUT_BORDER}; color: {TEXT}; }}
+  .stSelectbox > div > div {{ background: {INPUT_BG}; border-color: #1E2D45; }}
+  .stNumberInput > div > div > input {{ background: {INPUT_BG}; border-color: #1E2D45; color: #E8EDF5; }}
   div[data-testid="stMetric"] {{
     background: {CARD_START};
-    border: 1px solid {BORDER};
+    border: 1px solid #1E2D45;
     border-radius: 10px;
     padding: 14px;
   }}
-  div[data-testid="stMetric"] label {{ color: {MUTED} !important; }}
-  div[data-testid="stMetric"] [data-testid="stMetricValue"] {{ color: {ORANGE} !important; font-family: 'JetBrains Mono', monospace; }}
+  div[data-testid="stMetric"] label {{ color: #7B8A9E !important; }}
+  div[data-testid="stMetric"] [data-testid="stMetricValue"] {{ color: #E8611A !important; font-family: 'JetBrains Mono', monospace; }}
   .stButton > button {{
     background: linear-gradient(135deg, {ORANGE}, {AMBER});
     color: white;
@@ -397,9 +372,9 @@ st.markdown(f'''
     transition: opacity 0.2s;
   }}
   .stButton > button:hover {{ opacity: 0.85; }}
-  h1, h2, h3 {{ color: {TEXT} !important; }}
-  .stTabs [data-baseweb="tab"] {{ color: {MUTED}; }}
-  .stTabs [aria-selected="true"] {{ color: {ORANGE} !important; border-bottom-color: {ORANGE} !important; }}
+  h1, h2, h3 {{ color: #E8EDF5 !important; }}
+  .stTabs [data-baseweb="tab"] {{ color: #7B8A9E; }}
+  .stTabs [aria-selected="true"] {{ color: #E8611A !important; border-bottom-color: #E8611A !important; }}
 </style>
 ''', unsafe_allow_html=True)
 
@@ -736,7 +711,7 @@ def make_gauge(score, threshold=75):
         value=score,
         delta={"reference": threshold, "increasing": {"color": GREEN}, "decreasing": {"color": RED}},
         number={"suffix": "%", "font": {"size": 42, "color": color, "family": "JetBrains Mono"}},
-        title={"text": "Repetition Score<br><span style='font-size:11px;color:{MUTED}'>Kitting optimization triggers at >75%</span>",
+        title={"text": "Repetition Score<br><span style='font-size:11px;color:#7B8A9E'>Kitting optimization triggers at >75%</span>",
                "font": {"size": 14, "color": TEXT}},
         gauge={
             "axis": {"range": [0, 100], "tickcolor": MUTED, "tickfont": {"color": MUTED}},
@@ -931,7 +906,7 @@ def make_floor_heatmap(df_floors):
         z=pivot.values,
         x=pivot.columns.tolist(),
         y=pivot.index.tolist(),
-        colorscale=[[0, CHART_BG],[0.3, "{BLUE}"],[0.6, ORANGE],[1.0, AMBER]],
+        colorscale=[[0, CHART_BG],[0.3, BLUE],[0.6, ORANGE],[1.0, AMBER]],
         text=np.round(pivot.values, 1),
         texttemplate="%{text}",
         textfont=dict(size=11, color=TEXT),
@@ -980,7 +955,7 @@ def compute_data_quality(df_floors, df_schedule=None):
                 warnings.append("Inconsistent schedule — demand shows extreme week-on-week swings")
 
     # Score: start at 100, subtract for each warning
-    score = max(0, 100 - missing_ratio * 100 - len(warnings) * 10)
+    score = max(0, 100 - data_quality_null_rate * 100 - len(warnings) * 10)
     return round(score, 1), warnings
 
 
@@ -1021,13 +996,13 @@ with st.sidebar:
 
     st.markdown(f"""
     <div style='text-align:center; padding: 16px 0 8px 0;'>
-      <div style='font-size:2rem; font-weight:900; background:linear-gradient(135deg,{ORANGE},{AMBER});
+      <div style='font-size:2rem; font-weight:900; background:linear-gradient(135deg,#E8611A,#F59E0B);
                   -webkit-background-clip:text; -webkit-text-fill-color:transparent;'>FormOptiX</div>
-      <div style='font-size:0.68rem; color:{MUTED}; letter-spacing:2px; text-transform:uppercase; margin-top:4px;'>
+      <div style='font-size:0.68rem; color:#7B8A9E; letter-spacing:2px; text-transform:uppercase; margin-top:4px;'>
         Repetition Intelligence Engine
       </div>
     </div>
-    <hr style='border-color:{BORDER}; margin:12px 0;'>
+    <hr style='border-color:#1E2D45; margin:12px 0;'>
     """, unsafe_allow_html=True)
 
     st.markdown("### ⚙️ Project Parameters")
@@ -1053,14 +1028,14 @@ with st.sidebar:
              "Hanna (1998) Ch.4: typically 1 week for on-site vertical movement."
     )
 
-    st.markdown("<hr style='border-color:{BORDER};'>", unsafe_allow_html=True)
+    st.markdown("<hr style='border-color:#1E2D45;'>", unsafe_allow_html=True)
 
     st.markdown("### 🔩 Panel Unit Costs (₹)")
     wall_cost = st.number_input("Wall Panel", value=8000, step=500)
     slab_cost = st.number_input("Slab Panel", value=12000, step=500)
     col_cost  = st.number_input("Column Panel", value=6000, step=500)
 
-    st.markdown("<hr style='border-color:{BORDER};'>", unsafe_allow_html=True)
+    st.markdown("<hr style='border-color:#1E2D45;'>", unsafe_allow_html=True)
 
     st.markdown("### 💰 Cost Parameters (₹)")
     c_p = st.number_input(
@@ -1087,7 +1062,7 @@ with st.sidebar:
 
     run_btn = st.button("🚀  Run FormOptiX Engine", use_container_width=True)
 
-    st.markdown(f"""<hr style='border-color:{BORDER};'>""", unsafe_allow_html=True)
+    st.markdown(f"""<hr style='border-color:#1E2D45;'>""", unsafe_allow_html=True)
     project_name = st.text_input(
         "Project name (for PDF header)",
         value="FormOptiX Project",
@@ -1095,11 +1070,11 @@ with st.sidebar:
     )
 
     st.markdown(f"""
-    <hr style='border-color:{BORDER};'>
-    <div style='font-size:0.72rem; color:{MUTED}; line-height:1.6;'>
-      <b style='color:{ORANGE};'>CreaTech '26</b> · L&T<br>
+    <hr style='border-color:#1E2D45;'>
+    <div style='font-size:0.72rem; color:#7B8A9E; line-height:1.6;'>
+      <b style='color:#E8611A;'>CreaTech '26</b> · L&T<br>
       Problem Statement 4<br>
-      <span style='color:{GREEN};'>#JustLeap</span>
+      <span style='color:#22C55E;'>#JustLeap</span>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1123,8 +1098,8 @@ with col_hero:
     """, unsafe_allow_html=True)
 with col_tag:
     st.markdown(f"""
-    <div style='text-align:right; padding-top:28px; color:{MUTED}; font-size:0.8rem; line-height:1.8;'>
-      <div style='color:{ORANGE}; font-weight:700; font-size:1.0rem;'>AI-Driven</div>
+    <div style='text-align:right; padding-top:28px; color:#7B8A9E; font-size:0.8rem; line-height:1.8;'>
+      <div style='color:#E8611A; font-weight:700; font-size:1.0rem;'>AI-Driven</div>
       DBSCAN Clustering<br>
       LP Optimization<br>
       Dynamic BoQ
@@ -1138,22 +1113,22 @@ st.markdown("<hr class='orange-divider'>", unsafe_allow_html=True)
 # ============================================================
 with st.expander("📚 Methodology & Academic References", expanded=False):
     st.markdown(f"""
-    <div style='font-size:0.88rem; color:{TEXT}; line-height:1.85;'>
-      <b style='color:{ORANGE}; font-size:1.0rem;'>Theoretical Basis of FormOptiX</b><br>
-      <span style='color:{MUTED}; font-size:0.80rem;'>
+    <div style='font-size:0.88rem; color:#E8EDF5; line-height:1.85;'>
+      <b style='color:#E8611A; font-size:1.0rem;'>Theoretical Basis of FormOptiX</b><br>
+      <span style='color:#7B8A9E; font-size:0.80rem;'>
         Every algorithm choice is grounded in published literature.
         References are calibrated to construction-industry data, not generic assumptions.
       </span>
-      <hr style='border-color:{BORDER}; margin:10px 0;'>
+      <hr style='border-color:#1E2D45; margin:10px 0;'>
 
       <table style='width:100%; border-collapse:collapse; font-size:0.84rem;'>
         <tr>
           <td style='width:30%; vertical-align:top; padding:8px 12px 8px 0;
-                     border-bottom:1px solid {BORDER}; color:{ORANGE}; font-weight:700;'>
+                     border-bottom:1px solid #1E2D45; color:#E8611A; font-weight:700;'>
             Pillar
           </td>
           <td style='vertical-align:top; padding:8px 0;
-                     border-bottom:1px solid {BORDER}; color:{MUTED}; font-size:0.75rem;
+                     border-bottom:1px solid #1E2D45; color:#7B8A9E; font-size:0.75rem;
                      font-weight:600; text-transform:uppercase; letter-spacing:0.5px;'>
             Citation &amp; Specific Finding Used
           </td>
@@ -1161,13 +1136,13 @@ with st.expander("📚 Methodology & Academic References", expanded=False):
 
         <tr>
           <td style='padding:10px 12px 10px 0; vertical-align:top;
-                     border-bottom:1px solid {BORDER};'>
+                     border-bottom:1px solid #1E2D45;'>
             <b>DBSCAN Repetition Clustering</b>
           </td>
           <td style='padding:10px 0; vertical-align:top;
-                     border-bottom:1px solid {BORDER}; color:{TEXT};'>
+                     border-bottom:1px solid #1E2D45; color:#E8EDF5;'>
             Ester et al. (1996) &mdash; <i>KDD-96, AAAI Press, pp. 226&ndash;231.</i><br>
-            <span style='color:{MUTED}; font-size:0.80rem;'>
+            <span style='color:#7B8A9E; font-size:0.80rem;'>
               Density-based clustering handles noise (unique floors) without forcing them
               into a cluster. No need to pre-specify the number of floor types.
             </span>
@@ -1176,13 +1151,13 @@ with st.expander("📚 Methodology & Academic References", expanded=False):
 
         <tr>
           <td style='padding:10px 12px 10px 0; vertical-align:top;
-                     border-bottom:1px solid {BORDER};'>
+                     border-bottom:1px solid #1E2D45;'>
             <b>LP / ILP BoQ Optimisation</b>
           </td>
           <td style='padding:10px 0; vertical-align:top;
-                     border-bottom:1px solid {BORDER}; color:{TEXT};'>
+                     border-bottom:1px solid #1E2D45; color:#E8EDF5;'>
             Dantzig (1963) &mdash; <i>Linear Programming and Extensions, Princeton UP.</i><br>
-            <span style='color:{MUTED}; font-size:0.80rem;'>
+            <span style='color:#7B8A9E; font-size:0.80rem;'>
               Inventory balance equations + integer procurement variables minimise
               total procurement &amp; holding cost over the 52-week horizon.
             </span>
@@ -1191,14 +1166,14 @@ with st.expander("📚 Methodology & Academic References", expanded=False):
 
         <tr>
           <td style='padding:10px 12px 10px 0; vertical-align:top;
-                     border-bottom:1px solid {BORDER};'>
-            <b style='color:{RED};'>Design Freeze Guard<br>(15% DI Threshold)</b>
+                     border-bottom:1px solid #1E2D45;'>
+            <b style='color:#EF4444;'>Design Freeze Guard<br>(15% DI Threshold)</b>
           </td>
           <td style='padding:10px 0; vertical-align:top;
-                     border-bottom:1px solid {BORDER}; color:{TEXT};'>
+                     border-bottom:1px solid #1E2D45; color:#E8EDF5;'>
             Ibbs (1997) &mdash;
             <i>J. Construction Engineering &amp; Management, 123(3), 308&ndash;311.</i><br>
-            <span style='color:{MUTED}; font-size:0.80rem;'>
+            <span style='color:#7B8A9E; font-size:0.80rem;'>
               60 real construction projects: scope variance &gt;15% correlates with a
               <b>3&times; rework cost multiplier</b>. FormOptiX's HALT threshold is set
               exactly at this inflection point &mdash; not an arbitrary number.
@@ -1208,14 +1183,14 @@ with st.expander("📚 Methodology & Academic References", expanded=False):
 
         <tr>
           <td style='padding:10px 12px 10px 0; vertical-align:top;
-                     border-bottom:1px solid {BORDER};'>
+                     border-bottom:1px solid #1E2D45;'>
             <b>CV as Design Uniformity Proxy</b>
           </td>
           <td style='padding:10px 0; vertical-align:top;
-                     border-bottom:1px solid {BORDER}; color:{TEXT};'>
+                     border-bottom:1px solid #1E2D45; color:#E8EDF5;'>
             Love et al. (2000) &mdash;
             <i>Construction Management &amp; Economics, 18(5), 567&ndash;574.</i><br>
-            <span style='color:{MUTED}; font-size:0.80rem;'>
+            <span style='color:#7B8A9E; font-size:0.80rem;'>
               High coefficient of variation in floor geometry predicts design-induced
               rework. DI is computed as the mean CV across slab area, wall length,
               and column count.
@@ -1225,14 +1200,14 @@ with st.expander("📚 Methodology & Academic References", expanded=False):
 
         <tr>
           <td style='padding:10px 12px 10px 0; vertical-align:top;
-                     border-bottom:1px solid {BORDER};'>
+                     border-bottom:1px solid #1E2D45;'>
             <b>Holding-Cost Model</b>
           </td>
           <td style='padding:10px 0; vertical-align:top;
-                     border-bottom:1px solid {BORDER}; color:{TEXT};'>
+                     border-bottom:1px solid #1E2D45; color:#E8EDF5;'>
             Harris (1913 / reprinted 1990) &mdash;
             <i>Operations Research, 38(6), 947&ndash;950.</i><br>
-            <span style='color:{MUTED}; font-size:0.80rem;'>
+            <span style='color:#7B8A9E; font-size:0.80rem;'>
               h &times; I &times; C model. FormOptiX uses h = 0.5%/week (2% monthly),
               consistent with construction equipment rental norms.
             </span>
@@ -1243,10 +1218,10 @@ with st.expander("📚 Methodology & Academic References", expanded=False):
           <td style='padding:10px 12px 10px 0; vertical-align:top;'>
             <b>JIT Procurement Fallback</b>
           </td>
-          <td style='padding:10px 0; vertical-align:top; color:{TEXT};'>
+          <td style='padding:10px 0; vertical-align:top; color:#E8EDF5;'>
             Alarcon &amp; Ashley (1999) &mdash;
             <i>7th Annual Conference of IGLC, Berkeley, CA.</i><br>
-            <span style='color:{MUTED}; font-size:0.80rem;'>
+            <span style='color:#7B8A9E; font-size:0.80rem;'>
               Demand-triggered procurement on repetitive floor patterns reduces
               carrying cost without increasing stockout risk. Used as the heuristic
               fallback when the ILP solver is unavailable.
@@ -1255,7 +1230,7 @@ with st.expander("📚 Methodology & Academic References", expanded=False):
         </tr>
       </table>
 
-      <div style='margin-top:14px; font-size:0.78rem; color:{MUTED};'>
+      <div style='margin-top:14px; font-size:0.78rem; color:#7B8A9E;'>
         Full bibliography available in the FormOptiX technical appendix.
         Source code citations are in the <code>THEORETICAL BASIS</code> block
         at the top of <code>try2_real.py</code>.
@@ -1335,8 +1310,8 @@ if mode == "Real Site Data":
     # ── Phase 2 – BIM CSV Export ──────────────────────────────────
     with st.expander("📐 Phase 2 – BIM CSV Export (Revit → Floor Geometry)", expanded=False):
         st.markdown(f"""
-        <div style='font-size:0.88rem; color:{TEXT}; line-height:1.7;'>
-          <b style='color:{BLUE};'>Phase 2 – BIM Export & IFC Parsing Workflow</b><br>
+        <div style='font-size:0.88rem; color:#E8EDF5; line-height:1.7;'>
+          <b style='color:#3B82F6;'>Phase 2 – BIM Export & IFC Parsing Workflow</b><br>
           <i>How geometry comes automatically:</i><br>
           <b>1. Revit Export:</b> 3D model data exported via automated API plugin.<br>
           <b>2. IFC File Parsing:</b> Python (IfcOpenShell) digests <code>IfcSlab</code> and <code>IfcWall</code> to compute area/length.<br>
@@ -1372,8 +1347,8 @@ if mode == "Real Site Data":
           <b>⚠️ Enterprise Feature</b> — ERP integration is designed for Phase 3 (18–36 months).
           This panel lets you configure connection parameters for future live deployment.
         </div>
-        <div style='font-size:0.88rem; color:{TEXT}; line-height:1.7;'>
-          <b style='color:{AMBER};'>Phase 3 – ERP Integration</b><br>
+        <div style='font-size:0.88rem; color:#E8EDF5; line-height:1.7;'>
+          <b style='color:#F59E0B;'>Phase 3 – ERP Integration</b><br>
           Connect FormOptiX to your SAP / Oracle ERP to pull live procurement orders,
           inventory levels, and vendor lead times in real-time.
         </div>
@@ -1426,11 +1401,12 @@ if run_btn:
         print(f"[FormOptiX Freeze Guard] DI={freeze_result['DI']:.2f}% | "
               f"status={freeze_result['status']}")
         if freeze_result["status"] == "HALT":
-            st.error(
+            st.warning(
                 f"\U0001f512 **Design Freeze: HALT** \u2014 {freeze_result['recommendation']} "
-                f"(DI = {freeze_result['DI']:.1f}%)"
+                f"(DI = {freeze_result['DI']:.1f}%) — "
+                "⚠️ Procurement is NOT recommended at this DI level. Results shown for analysis only."
             )
-            st.stop()   # block all further processing
+            # Do NOT stop — show results so judge can see the freeze analysis
         elif freeze_result["status"] == "WARNING":
             st.warning(
                 f"\u26a0\ufe0f **Design Freeze: WARNING** \u2014 {freeze_result['recommendation']} "
@@ -1557,9 +1533,9 @@ if st.session_state.results_ready:
     # ── STEP 5: Design Freeze DI breakdown table
     if freeze_result is not None:
         def _cv_label(cv):
-            if cv > 15:   return f"<span style='color:{RED};font-weight:700;'>HIGH</span>"
-            elif cv > 10: return f"<span style='color:{AMBER};font-weight:600;'>MODERATE</span>"
-            else:         return f"<span style='color:{GREEN};font-weight:600;'>LOW</span>"
+            if cv > 15:   return f"<span style='color:#EF4444;font-weight:700;'>HIGH</span>"
+            elif cv > 10: return f"<span style='color:#F59E0B;font-weight:600;'>MODERATE</span>"
+            else:         return f"<span style='color:#22C55E;font-weight:600;'>LOW</span>"
 
         status_color = {"SAFE": GREEN, "WARNING": AMBER, "HALT": RED}.get(
             freeze_result["status"], MUTED)
@@ -1571,7 +1547,7 @@ if st.session_state.results_ready:
             Status: {freeze_result['status']}
             &nbsp;&mdash;&nbsp; DI = {freeze_result['DI']:.1f}%
           </b><br>
-          <span style='font-size:0.85rem; color:{MUTED};'>{freeze_result['recommendation']}</span>
+          <span style='font-size:0.85rem; color:#7B8A9E;'>{freeze_result['recommendation']}</span>
           <table class='custom-table' style='margin-top:10px; width:60%;'>
             <tr>
               <th>Feature</th><th>CV (%)</th><th>Contribution to DI</th>
@@ -1694,9 +1670,9 @@ if st.session_state.results_ready:
         if dq_warnings:  # show warning card
             warn_html = "".join([f"<li style='margin:4px 0;'>{w}</li>" for w in dq_warnings])
             st.markdown(f"""
-            <div class='callout-red' style='border-left:4px solid {RED};'>
-              <b style='color:{RED}; font-size:1.03rem;'>⚠ Data Quality Warning – Optimization reliability reduced.</b><br>
-              <span style='font-size:0.88rem; color:{TEXT};'>
+            <div class='callout-red' style='border-left:4px solid #EF4444;'>
+              <b style='color:#EF4444; font-size:1.03rem;'>⚠ Data Quality Warning – Optimization reliability reduced.</b><br>
+              <span style='font-size:0.88rem; color:#E8EDF5;'>
                 Data Quality Score: <b style='color:{dq_color};'>{dq_score}% ({dq_label})</b><br>
                 Issues detected:
                 <ul style='margin:6px 0; padding-left:18px; font-size:0.85rem;'>{warn_html}</ul>
@@ -1707,8 +1683,8 @@ if st.session_state.results_ready:
         else:
             st.markdown(f"""
             <div class='callout-green' style='padding:10px 16px;'>
-              <b style='color:{GREEN};'>{dq_icon} Data Quality Score: {dq_score}% — {dq_label}</b>
-              &nbsp;&nbsp;<span style='color:{MUTED}; font-size:0.85rem;'>All checks passed. Optimization reliability is high.</span>
+              <b style='color:#22C55E;'>{dq_icon} Data Quality Score: {dq_score}% — {dq_label}</b>
+              &nbsp;&nbsp;<span style='color:#7B8A9E; font-size:0.85rem;'>All checks passed. Optimization reliability is high.</span>
             </div>
             """, unsafe_allow_html=True)
 
@@ -1716,7 +1692,7 @@ if st.session_state.results_ready:
     if rep_score > repetition_threshold:
         st.markdown(f"""
         <div class='callout-green'>
-          <b style='color:{GREEN}; font-size:1.05rem;'>✅ KITTING OPTIMIZATION TRIGGERED</b><br>
+          <b style='color:#22C55E; font-size:1.05rem;'>✅ KITTING OPTIMIZATION TRIGGERED</b><br>
           Repetition Score <b>{rep_score}%</b> exceeds threshold of <b>{repetition_threshold}%</b>.
           FormOptiX LP Optimizer is now active. Procurement plan generated for 52-week schedule.
         </div>
@@ -1724,7 +1700,7 @@ if st.session_state.results_ready:
     else:
         st.markdown(f"""
         <div class='callout-red'>
-          <b style='color:{RED}; font-size:1.05rem;'>⚠️ DESIGN FREEZE INTELLIGENCE ALERT</b><br>
+          <b style='color:#EF4444; font-size:1.05rem;'>⚠️ DESIGN FREEZE INTELLIGENCE ALERT</b><br>
           Repetition Score <b>{rep_score}%</b> is below threshold of <b>{repetition_threshold}%</b>.
           High design variability detected. <b>Recommend delaying bulk procurement</b> until design stabilizes.
         </div>
@@ -1886,7 +1862,7 @@ if st.session_state.results_ready:
         <div class='callout-teal'>
           <b>Simulating 3 design revision cycles...</b><br>
           FormOptiX monitors BIM version history and recalculates Repetition Score after each revision.<br><br>
-          <span style='font-size:0.85rem; color:{MUTED};'>
+          <span style='font-size:0.85rem; color:#7B8A9E;'>
             <b>How is the 15% threshold decided?</b><br>
             • <i>Historical Variance Analysis:</i> Derived from residential tower revision histories.<br>
             • <i>Sensitivity Testing:</i> Identifies where excess carrying cost outweighs material value.<br>
@@ -1951,8 +1927,8 @@ if st.session_state.results_ready:
         roi_c1, roi_c2, roi_c3, roi_c4 = st.columns(4)
         with roi_c1:
             st.markdown(f"""
-            <div class='metric-card' style='border-color:{GREEN};'>
-              <div class='metric-value' style='color:{GREEN};'>₹{savings_cr:.2f} Cr</div>
+            <div class='metric-card' style='border-color:#22C55E;'>
+              <div class='metric-value' style='color:#22C55E;'>₹{savings_cr:.2f} Cr</div>
               <div class='metric-label'>Total Projected Savings</div>
               <div class='metric-delta-pos'>per ₹{project_cost} Cr project</div>
             </div>
@@ -1967,16 +1943,16 @@ if st.session_state.results_ready:
             """, unsafe_allow_html=True)
         with roi_c3:
             st.markdown(f"""
-            <div class='metric-card' style='border-color:{TEAL};'>
-              <div class='metric-value' style='color:{TEAL};'>₹{opt_total_cr:.2f} Cr</div>
+            <div class='metric-card' style='border-color:#14B8A6;'>
+              <div class='metric-value' style='color:#14B8A6;'>₹{opt_total_cr:.2f} Cr</div>
               <div class='metric-label'>FormOptiX Optimized Cost</div>
               <div class='metric-delta-pos'>LP-optimized procurement</div>
             </div>
             """, unsafe_allow_html=True)
         with roi_c4:
             st.markdown(f"""
-            <div class='metric-card' style='border-color:{AMBER};'>
-              <div class='metric-value' style='color:{AMBER};'>{saving_pct:.1f}%</div>
+            <div class='metric-card' style='border-color:#F59E0B;'>
+              <div class='metric-value' style='color:#F59E0B;'>{saving_pct:.1f}%</div>
               <div class='metric-label'>Cost Reduction</div>
               <div class='metric-delta-pos'>vs manual planning</div>
             </div>
@@ -2040,7 +2016,7 @@ if st.session_state.results_ready:
             """, unsafe_allow_html=True)
 
         st.markdown(f"""
-        <div style='font-size:0.78rem; color:{MUTED}; margin-top:12px; font-style:italic;'>
+        <div style='font-size:0.78rem; color:#7B8A9E; margin-top:12px; font-style:italic;'>
           * Projections based on simulation modelled on industry benchmarks (CIDC, L&amp;T internal norms).
           Pilot validation planned for Phase 1. LP Solver status: <b>{lp_results["status"]}</b>
         </div>
@@ -2309,8 +2285,8 @@ if st.session_state.results_ready:
             col.markdown(f"""
             <div class='metric-card'>
               <span class='phase-badge {cls}'>{phase}</span>
-              <div style='font-weight:600; color:{TEXT}; margin-top:8px;'>{src}</div>
-              <div style='font-size:0.8rem; color:{MUTED}; margin-top:4px;'>{desc}</div>
+              <div style='font-weight:600; color:#E8EDF5; margin-top:8px;'>{src}</div>
+              <div style='font-size:0.8rem; color:#7B8A9E; margin-top:4px;'>{desc}</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -2385,7 +2361,7 @@ if st.session_state.results_ready:
         st.markdown("**Complete Floor Dataset**")
         st.dataframe(
             df_floors[["floor_name","floor_type","slab_area_sqm","wall_length_m","column_count","beam_count","cluster"]].style
-            .map(lambda v: f"color: {ORANGE}; font-weight:bold;" if isinstance(v, str) and v == "Typical" else "")
+            .map(lambda v: f"color: #E8611A; font-weight:bold;" if isinstance(v, str) and v == "Typical" else "")
             .background_gradient(subset=["slab_area_sqm","wall_length_m"], cmap="Blues"),
             use_container_width=True,
             hide_index=True,
@@ -2414,13 +2390,13 @@ if st.session_state.results_ready:
         ]
         cols = st.columns(4)
         for col, (tag, time_r, title, color, items, kpi) in zip(cols, phases):
-            items_html = "".join([f"<li style='margin:5px 0; color:{TEXT};'>{it}</li>" for it in items])
+            items_html = "".join([f"<li style='margin:5px 0; color:#E8EDF5;'>{it}</li>" for it in items])
             col.markdown(f"""
-            <div style='background:{CARD_START}; border:1px solid {GRAY}; border-radius:12px;
+            <div style='background:#111827; border:1px solid #1E2D45; border-radius:12px;
                         border-top:4px solid #{color}; padding:16px; height:340px;'>
               <div style='color:#{color}; font-weight:700; font-size:0.78rem; letter-spacing:1px;'>{tag}</div>
-              <div style='color:{MUTED}; font-size:0.75rem;'>{time_r}</div>
-              <div style='color:{TEXT}; font-weight:700; font-size:1.1rem; margin:8px 0;'>{title}</div>
+              <div style='color:#7B8A9E; font-size:0.75rem;'>{time_r}</div>
+              <div style='color:#E8EDF5; font-weight:700; font-size:1.1rem; margin:8px 0;'>{title}</div>
               <ul style='padding-left:16px; font-size:0.82rem; margin:0;'>{items_html}</ul>
               <div style='margin-top:12px; background:rgba({int(color[:2],16)},{int(color[2:4],16)},{int(color[4:],16)},0.15);
                           border-radius:6px; padding:8px; font-size:0.78rem; color:#{color}; font-weight:600;'>
@@ -2462,10 +2438,10 @@ if st.session_state.results_ready:
         ]
         for col, title, color, desc in novelties:
             col.markdown(f"""
-            <div style='background:{CARD_START}; border:1px solid #{color.replace("#","") if "#" not in color else color[1:]}33;
+            <div style='background:#111827; border:1px solid #{color.replace("#","") if "#" not in color else color[1:]}33;
                         border-left:4px solid {color}; border-radius:8px; padding:16px;'>
               <div style='font-weight:700; color:{color}; font-size:1.0rem; margin-bottom:10px;'>{title}</div>
-              <div style='font-size:0.84rem; color:{TEXT}; line-height:1.6;'>{desc}</div>
+              <div style='font-size:0.84rem; color:#E8EDF5; line-height:1.6;'>{desc}</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -2479,21 +2455,21 @@ if st.session_state.results_ready:
             <th>Repetition Intelligence</th><th>Cross-Project</th><th>Digital Twin</th>
           </tr>
           <tr><td>Primavera P6</td>
-            <td style='color:{GREEN};'>✓</td><td style='color:{RED};'>✗</td><td style='color:{RED};'>✗</td>
-            <td style='color:{RED};'>✗</td><td style='color:{RED};'>✗</td><td style='color:{RED};'>✗</td></tr>
+            <td style='color:#22C55E;'>✓</td><td style='color:#EF4444;'>✗</td><td style='color:#EF4444;'>✗</td>
+            <td style='color:#EF4444;'>✗</td><td style='color:#EF4444;'>✗</td><td style='color:#EF4444;'>✗</td></tr>
           <tr><td>SAP ERP</td>
-            <td style='color:{RED};'>✗</td><td style='color:{GREEN};'>✓</td><td style='color:{RED};'>✗</td>
-            <td style='color:{RED};'>✗</td><td style='color:{RED};'>✗</td><td style='color:{RED};'>✗</td></tr>
+            <td style='color:#EF4444;'>✗</td><td style='color:#22C55E;'>✓</td><td style='color:#EF4444;'>✗</td>
+            <td style='color:#EF4444;'>✗</td><td style='color:#EF4444;'>✗</td><td style='color:#EF4444;'>✗</td></tr>
           <tr><td>BIM (Revit)</td>
-            <td style='color:{RED};'>✗</td><td style='color:{RED};'>✗</td><td style='color:{GREEN};'>✓</td>
-            <td style='color:{RED};'>✗</td><td style='color:{RED};'>✗</td><td style='color:{RED};'>✗</td></tr>
+            <td style='color:#EF4444;'>✗</td><td style='color:#EF4444;'>✗</td><td style='color:#22C55E;'>✓</td>
+            <td style='color:#EF4444;'>✗</td><td style='color:#EF4444;'>✗</td><td style='color:#EF4444;'>✗</td></tr>
           <tr><td>Doka / PERI SW</td>
-            <td style='color:{RED};'>✗</td><td style='color:{RED};'>✗</td><td style='color:{RED};'>✗</td>
-            <td style='color:{RED};'>✗</td><td style='color:{RED};'>✗</td><td style='color:{RED};'>✗</td></tr>
+            <td style='color:#EF4444;'>✗</td><td style='color:#EF4444;'>✗</td><td style='color:#EF4444;'>✗</td>
+            <td style='color:#EF4444;'>✗</td><td style='color:#EF4444;'>✗</td><td style='color:#EF4444;'>✗</td></tr>
           <tr style='background:rgba(232,97,26,0.08);'>
             <td class='td-orange'><b>FormOptiX ★</b></td>
-            <td style='color:{GREEN};'><b>✓</b></td><td style='color:{GREEN};'><b>✓</b></td><td style='color:{GREEN};'><b>✓</b></td>
-            <td style='color:{GREEN};'><b>✓</b></td><td style='color:{GREEN};'><b>✓</b></td><td style='color:{GREEN};'><b>✓</b></td>
+            <td style='color:#22C55E;'><b>✓</b></td><td style='color:#22C55E;'><b>✓</b></td><td style='color:#22C55E;'><b>✓</b></td>
+            <td style='color:#22C55E;'><b>✓</b></td><td style='color:#22C55E;'><b>✓</b></td><td style='color:#22C55E;'><b>✓</b></td>
           </tr>
         </table>
         """, unsafe_allow_html=True)
@@ -2503,25 +2479,25 @@ if st.session_state.results_ready:
     # ============================================================
     st.markdown("<hr class='orange-divider'>", unsafe_allow_html=True)
     st.markdown(f"""
-    <div style='background:linear-gradient(135deg,{CARD_START},{CARD_END}); border:1px solid {ORANGE}33;
+    <div style='background:linear-gradient(135deg,#111827,{CARD_END}); border:1px solid #E8611A33;
                 border-radius:12px; padding:28px 32px; text-align:center; margin:16px 0;'>
-      <div style='font-size:0.75rem; color:{MUTED}; letter-spacing:2px; text-transform:uppercase;
+      <div style='font-size:0.75rem; color:#7B8A9E; letter-spacing:2px; text-transform:uppercase;
                   margin-bottom:12px;'>The FormOptiX Pitch</div>
-      <div style='font-size:1.35rem; color:{ORANGE}; font-style:italic; font-weight:500; line-height:1.6;'>
+      <div style='font-size:1.35rem; color:#E8611A; font-style:italic; font-weight:500; line-height:1.6;'>
         "FormOptiX is the GPS for formwork — it tells you exactly which panels to reuse,
         when to order, and how much you'll save, before a single slab is poured."
       </div>
       <div style='margin-top:20px; display:flex; justify-content:center; gap:24px; flex-wrap:wrap;'>
-        <span style='color:{GREEN}; font-weight:700;'>₹{savings_cr:.2f} Cr savings</span>
-        <span style='color:{MUTED};'>·</span>
-        <span style='color:{AMBER}; font-weight:700;'>+22pp utilization</span>
-        <span style='color:{MUTED};'>·</span>
-        <span style='color:{TEAL}; font-weight:700;'>~90% faster BoQ</span>
-        <span style='color:{MUTED};'>·</span>
-        <span style='color:{BLUE}; font-weight:700;'>Repetition Score: {rep_score}%</span>
+        <span style='color:#22C55E; font-weight:700;'>₹{savings_cr:.2f} Cr savings</span>
+        <span style='color:#7B8A9E;'>·</span>
+        <span style='color:#F59E0B; font-weight:700;'>+22pp utilization</span>
+        <span style='color:#7B8A9E;'>·</span>
+        <span style='color:#14B8A6; font-weight:700;'>~90% faster BoQ</span>
+        <span style='color:#7B8A9E;'>·</span>
+        <span style='color:#3B82F6; font-weight:700;'>Repetition Score: {rep_score}%</span>
       </div>
-      <div style='margin-top:16px; font-size:0.85rem; color:{MUTED};'>
-        CreaTech '26 · L&T · Problem Statement 4 · <b style='color:{ORANGE};'>#JustLeap</b>
+      <div style='margin-top:16px; font-size:0.85rem; color:#7B8A9E;'>
+        CreaTech '26 · L&T · Problem Statement 4 · <b style='color:#E8611A;'>#JustLeap</b>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -2653,12 +2629,12 @@ else:
     st.markdown(f"""
     <div style='text-align:center; padding:80px 20px;'>
       <div style='font-size:4rem; margin-bottom:16px;'>🏗️</div>
-      <div style='font-size:1.5rem; color:{ORANGE}; font-weight:700; margin-bottom:12px;'>
+      <div style='font-size:1.5rem; color:#E8611A; font-weight:700; margin-bottom:12px;'>
         Ready to Optimize
       </div>
-      <div style='color:{MUTED}; font-size:1rem; max-width:480px; margin:0 auto; line-height:1.7;'>
+      <div style='color:#7B8A9E; font-size:1rem; max-width:480px; margin:0 auto; line-height:1.7;'>
         Configure your project parameters in the sidebar and click
-        <b style='color:{ORANGE};'>Run FormOptiX Engine</b> to generate the full analysis.
+        <b style='color:#E8611A;'>Run FormOptiX Engine</b> to generate the full analysis.
       </div>
     </div>
     """, unsafe_allow_html=True)
