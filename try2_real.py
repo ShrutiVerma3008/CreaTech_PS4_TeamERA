@@ -1112,7 +1112,7 @@ st.markdown("<hr class='orange-divider'>", unsafe_allow_html=True)
 # METHODOLOGY EXPANDER
 # ============================================================
 with st.expander("📚 Methodology & Academic References", expanded=False):
-    st.markdown(f"""
+    st.markdown("""
     <div style='font-size:0.88rem; color:#E8EDF5; line-height:1.85;'>
       <b style='color:#E8611A; font-size:1.0rem;'>Theoretical Basis of FormOptiX</b><br>
       <span style='color:#7B8A9E; font-size:0.80rem;'>
