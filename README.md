@@ -10,7 +10,7 @@
 
 <br/>
 
-[![Live Demo](https://img.shields.io/badge/▶%20LIVE%20DEMO-Try%20FormOptiX-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://shrutiverma3008-formoptix-try3-ezap9o.streamlit.app)
+[![Live Demo](https://img.shields.io/badge/▶%20LIVE%20DEMO-Try%20FormOptiX-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)]([https://shrutiverma3008-formoptix-try3-ezap9o.streamlit.app](https://createchps4teamera-gcrdws5rfnzvfg6vkcrcnn.streamlit.app/))
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![PuLP](https://img.shields.io/badge/PuLP-LP%20Solver-4CAF50?style=for-the-badge&logo=python&logoColor=white)](https://coin-or.github.io/pulp/)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-DBSCAN-F7931E?style=for-the-badge&logo=scikitlearn&logoColor=white)](https://scikit-learn.org)
@@ -723,6 +723,6 @@ Academic citations              ✗         ✗          ✗        ✅ 15 peer-
 
 *"Before a single slab is poured."*
 
-[![Live Demo](https://img.shields.io/badge/▶%20Try%20It%20Now-FormOptiX%20Live-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://shrutiverma3008-formoptix-try3-ezap9o.streamlit.app)
+[![Live Demo](https://img.shields.io/badge/▶%20Try%20It%20Now-FormOptiX%20Live-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://createchps4teamera-gcrdws5rfnzvfg6vkcrcnn.streamlit.app)
 
 </div>
