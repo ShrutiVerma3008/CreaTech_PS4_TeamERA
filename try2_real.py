@@ -1112,131 +1112,129 @@ st.markdown("<hr class='orange-divider'>", unsafe_allow_html=True)
 # METHODOLOGY EXPANDER
 # ============================================================
 with st.expander("📚 Methodology & Academic References", expanded=False):
-    st.markdown("""
-    <div style='font-size:0.88rem; color:#E8EDF5; line-height:1.85;'>
-      <b style='color:#E8611A; font-size:1.0rem;'>Theoretical Basis of FormOptiX</b><br>
-      <span style='color:#7B8A9E; font-size:0.80rem;'>
-        Every algorithm choice is grounded in published literature.
-        References are calibrated to construction-industry data, not generic assumptions.
-      </span>
-      <hr style='border-color:#1E2D45; margin:10px 0;'>
+    st.markdown("""<div style='font-size:0.88rem; color:#E8EDF5; line-height:1.85;'>
+<b style='color:#E8611A; font-size:1.0rem;'>Theoretical Basis of FormOptiX</b><br>
+<span style='color:#7B8A9E; font-size:0.80rem;'>
+Every algorithm choice is grounded in published literature.
+References are calibrated to construction-industry data, not generic assumptions.
+</span>
+<hr style='border-color:#1E2D45; margin:10px 0;'>
 
-      <table style='width:100%; border-collapse:collapse; font-size:0.84rem;'>
-        <tr>
-          <td style='width:30%; vertical-align:top; padding:8px 12px 8px 0;
-                     border-bottom:1px solid #1E2D45; color:#E8611A; font-weight:700;'>
-            Pillar
-          </td>
-          <td style='vertical-align:top; padding:8px 0;
-                     border-bottom:1px solid #1E2D45; color:#7B8A9E; font-size:0.75rem;
-                     font-weight:600; text-transform:uppercase; letter-spacing:0.5px;'>
-            Citation &amp; Specific Finding Used
-          </td>
-        </tr>
+<table style='width:100%; border-collapse:collapse; font-size:0.84rem;'>
+<tr>
+<td style='width:30%; vertical-align:top; padding:8px 12px 8px 0;
+border-bottom:1px solid #1E2D45; color:#E8611A; font-weight:700;'>
+Pillar
+</td>
+<td style='vertical-align:top; padding:8px 0;
+border-bottom:1px solid #1E2D45; color:#7B8A9E; font-size:0.75rem;
+font-weight:600; text-transform:uppercase; letter-spacing:0.5px;'>
+Citation &amp; Specific Finding Used
+</td>
+</tr>
 
-        <tr>
-          <td style='padding:10px 12px 10px 0; vertical-align:top;
-                     border-bottom:1px solid #1E2D45;'>
-            <b>DBSCAN Repetition Clustering</b>
-          </td>
-          <td style='padding:10px 0; vertical-align:top;
-                     border-bottom:1px solid #1E2D45; color:#E8EDF5;'>
-            Ester et al. (1996) &mdash; <i>KDD-96, AAAI Press, pp. 226&ndash;231.</i><br>
-            <span style='color:#7B8A9E; font-size:0.80rem;'>
-              Density-based clustering handles noise (unique floors) without forcing them
-              into a cluster. No need to pre-specify the number of floor types.
-            </span>
-          </td>
-        </tr>
+<tr>
+<td style='padding:10px 12px 10px 0; vertical-align:top;
+border-bottom:1px solid #1E2D45;'>
+<b>DBSCAN Repetition Clustering</b>
+</td>
+<td style='padding:10px 0; vertical-align:top;
+border-bottom:1px solid #1E2D45; color:#E8EDF5;'>
+Ester et al. (1996) &mdash; <i>KDD-96, AAAI Press, pp. 226&ndash;231.</i><br>
+<span style='color:#7B8A9E; font-size:0.80rem;'>
+Density-based clustering handles noise (unique floors) without forcing them
+into a cluster. No need to pre-specify the number of floor types.
+</span>
+</td>
+</tr>
 
-        <tr>
-          <td style='padding:10px 12px 10px 0; vertical-align:top;
-                     border-bottom:1px solid #1E2D45;'>
-            <b>LP / ILP BoQ Optimisation</b>
-          </td>
-          <td style='padding:10px 0; vertical-align:top;
-                     border-bottom:1px solid #1E2D45; color:#E8EDF5;'>
-            Dantzig (1963) &mdash; <i>Linear Programming and Extensions, Princeton UP.</i><br>
-            <span style='color:#7B8A9E; font-size:0.80rem;'>
-              Inventory balance equations + integer procurement variables minimise
-              total procurement &amp; holding cost over the 52-week horizon.
-            </span>
-          </td>
-        </tr>
+<tr>
+<td style='padding:10px 12px 10px 0; vertical-align:top;
+border-bottom:1px solid #1E2D45;'>
+<b>LP / ILP BoQ Optimisation</b>
+</td>
+<td style='padding:10px 0; vertical-align:top;
+border-bottom:1px solid #1E2D45; color:#E8EDF5;'>
+Dantzig (1963) &mdash; <i>Linear Programming and Extensions, Princeton UP.</i><br>
+<span style='color:#7B8A9E; font-size:0.80rem;'>
+Inventory balance equations + integer procurement variables minimise
+total procurement &amp; holding cost over the 52-week horizon.
+</span>
+</td>
+</tr>
 
-        <tr>
-          <td style='padding:10px 12px 10px 0; vertical-align:top;
-                     border-bottom:1px solid #1E2D45;'>
-            <b style='color:#EF4444;'>Design Freeze Guard<br>(15% DI Threshold)</b>
-          </td>
-          <td style='padding:10px 0; vertical-align:top;
-                     border-bottom:1px solid #1E2D45; color:#E8EDF5;'>
-            Ibbs (1997) &mdash;
-            <i>J. Construction Engineering &amp; Management, 123(3), 308&ndash;311.</i><br>
-            <span style='color:#7B8A9E; font-size:0.80rem;'>
-              60 real construction projects: scope variance &gt;15% correlates with a
-              <b>3&times; rework cost multiplier</b>. FormOptiX's HALT threshold is set
-              exactly at this inflection point &mdash; not an arbitrary number.
-            </span>
-          </td>
-        </tr>
+<tr>
+<td style='padding:10px 12px 10px 0; vertical-align:top;
+border-bottom:1px solid #1E2D45;'>
+<b style='color:#EF4444;'>Design Freeze Guard<br>(15% DI Threshold)</b>
+</td>
+<td style='padding:10px 0; vertical-align:top;
+border-bottom:1px solid #1E2D45; color:#E8EDF5;'>
+Ibbs (1997) &mdash;
+<i>J. Construction Engineering &amp; Management, 123(3), 308&ndash;311.</i><br>
+<span style='color:#7B8A9E; font-size:0.80rem;'>
+60 real construction projects: scope variance &gt;15% correlates with a
+<b>3&times; rework cost multiplier</b>. FormOptiX's HALT threshold is set
+exactly at this inflection point &mdash; not an arbitrary number.
+</span>
+</td>
+</tr>
 
-        <tr>
-          <td style='padding:10px 12px 10px 0; vertical-align:top;
-                     border-bottom:1px solid #1E2D45;'>
-            <b>CV as Design Uniformity Proxy</b>
-          </td>
-          <td style='padding:10px 0; vertical-align:top;
-                     border-bottom:1px solid #1E2D45; color:#E8EDF5;'>
-            Love et al. (2000) &mdash;
-            <i>Construction Management &amp; Economics, 18(5), 567&ndash;574.</i><br>
-            <span style='color:#7B8A9E; font-size:0.80rem;'>
-              High coefficient of variation in floor geometry predicts design-induced
-              rework. DI is computed as the mean CV across slab area, wall length,
-              and column count.
-            </span>
-          </td>
-        </tr>
+<tr>
+<td style='padding:10px 12px 10px 0; vertical-align:top;
+border-bottom:1px solid #1E2D45;'>
+<b>CV as Design Uniformity Proxy</b>
+</td>
+<td style='padding:10px 0; vertical-align:top;
+border-bottom:1px solid #1E2D45; color:#E8EDF5;'>
+Love et al. (2000) &mdash;
+<i>Construction Management &amp; Economics, 18(5), 567&ndash;574.</i><br>
+<span style='color:#7B8A9E; font-size:0.80rem;'>
+High coefficient of variation in floor geometry predicts design-induced
+rework. DI is computed as the mean CV across slab area, wall length,
+and column count.
+</span>
+</td>
+</tr>
 
-        <tr>
-          <td style='padding:10px 12px 10px 0; vertical-align:top;
-                     border-bottom:1px solid #1E2D45;'>
-            <b>Holding-Cost Model</b>
-          </td>
-          <td style='padding:10px 0; vertical-align:top;
-                     border-bottom:1px solid #1E2D45; color:#E8EDF5;'>
-            Harris (1913 / reprinted 1990) &mdash;
-            <i>Operations Research, 38(6), 947&ndash;950.</i><br>
-            <span style='color:#7B8A9E; font-size:0.80rem;'>
-              h &times; I &times; C model. FormOptiX uses h = 0.5%/week (2% monthly),
-              consistent with construction equipment rental norms.
-            </span>
-          </td>
-        </tr>
+<tr>
+<td style='padding:10px 12px 10px 0; vertical-align:top;
+border-bottom:1px solid #1E2D45;'>
+<b>Holding-Cost Model</b>
+</td>
+<td style='padding:10px 0; vertical-align:top;
+border-bottom:1px solid #1E2D45; color:#E8EDF5;'>
+Harris (1913 / reprinted 1990) &mdash;
+<i>Operations Research, 38(6), 947&ndash;950.</i><br>
+<span style='color:#7B8A9E; font-size:0.80rem;'>
+h &times; I &times; C model. FormOptiX uses h = 0.5%/week (2% monthly),
+consistent with construction equipment rental norms.
+</span>
+</td>
+</tr>
 
-        <tr>
-          <td style='padding:10px 12px 10px 0; vertical-align:top;'>
-            <b>JIT Procurement Fallback</b>
-          </td>
-          <td style='padding:10px 0; vertical-align:top; color:#E8EDF5;'>
-            Alarcon &amp; Ashley (1999) &mdash;
-            <i>7th Annual Conference of IGLC, Berkeley, CA.</i><br>
-            <span style='color:#7B8A9E; font-size:0.80rem;'>
-              Demand-triggered procurement on repetitive floor patterns reduces
-              carrying cost without increasing stockout risk. Used as the heuristic
-              fallback when the ILP solver is unavailable.
-            </span>
-          </td>
-        </tr>
-      </table>
+<tr>
+<td style='padding:10px 12px 10px 0; vertical-align:top;'>
+<b>JIT Procurement Fallback</b>
+</td>
+<td style='padding:10px 0; vertical-align:top; color:#E8EDF5;'>
+Alarcon &amp; Ashley (1999) &mdash;
+<i>7th Annual Conference of IGLC, Berkeley, CA.</i><br>
+<span style='color:#7B8A9E; font-size:0.80rem;'>
+Demand-triggered procurement on repetitive floor patterns reduces
+carrying cost without increasing stockout risk. Used as the heuristic
+fallback when the ILP solver is unavailable.
+</span>
+</td>
+</tr>
+</table>
 
-      <div style='margin-top:14px; font-size:0.78rem; color:#7B8A9E;'>
-        Full bibliography available in the FormOptiX technical appendix.
-        Source code citations are in the <code>THEORETICAL BASIS</code> block
-        at the top of <code>try2_real.py</code>.
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+<div style='margin-top:14px; font-size:0.78rem; color:#7B8A9E;'>
+Full bibliography available in the FormOptiX technical appendix.
+Source code citations are in the <code>THEORETICAL BASIS</code> block
+at the top of <code>try2_real.py</code>.
+</div>
+</div>""", unsafe_allow_html=True)
 
 
 # ============================================================
