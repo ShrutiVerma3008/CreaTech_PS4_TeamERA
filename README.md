@@ -10,13 +10,13 @@
 
 <br/>
 
-[![Live Demo](https://img.shields.io/badge/▶%20LIVE%20DEMO-Try%20FormOptiX-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)(https://createchps4teamera-gcrdws5rfnzvfg6vkcrcnn.streamlit.app)  
+[![Live Demo](https://img.shields.io/badge/▶%20LIVE%20DEMO-Try%20FormOptiX-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://createchps4teamera-gcrdws5rfnzvfg6vkcrcnn.streamlit.app)
+
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![PuLP](https://img.shields.io/badge/PuLP-LP%20Solver-4CAF50?style=for-the-badge&logo=python&logoColor=white)](https://coin-or.github.io/pulp/)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-DBSCAN-F7931E?style=for-the-badge&logo=scikitlearn&logoColor=white)](https://scikit-learn.org)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
 [![CreaTech](https://img.shields.io/badge/L%26T_CreaTech_'26-Problem_Statement_4-FF6B00?style=for-the-badge)](https://www.larsentoubro.com)
-
 <br/>
 
 > ### 🏆 Finals Submission · L&T CreaTech '26 · Problem Statement 4
