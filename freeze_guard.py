@@ -382,103 +382,102 @@ def get_procurement_recommendation(
 
 def predict_design_change_risk(di_history: list) -> dict:
     """
-    Predict design change probability from a trend of DI values.
+    Parameters
+    ----------
+    di_history : list of float
+        DI values from successive uploads, most recent LAST.
+        Length 0-5. Values are percentages (e.g. 12.5 not 0.125).
 
-    This converts the freeze guard from a *diagnostic* tool (what is
-    happening now) into a *predictive* tool (what is about to happen),
-    satisfying PS4 predictive-planning requirements.
+    Returns
+    -------
+    dict with keys:
+        risk_level   : str  "HIGH" | "MEDIUM" | "LOW" | "INSUFFICIENT DATA"
+        confidence   : str  "high" (len>=3) | "moderate" (len==2) | "low" (len<=1)
+        trend        : float  di_history[-1] - di_history[0], 0.0 if len < 2
+        above_count  : int  count of values > 10.0
+        total_count  : int  len(di_history)
+        message      : str  (see logic below)
+        citation     : str  always = canonical Ibbs 1997 string
 
     Academic basis
     --------------
     Ibbs, C.W. (1997). Quantitative impacts of project change.
     Journal of Construction Engineering and Management, 123(3), 308-311.
-    → Projects whose DI stays above 10% for multiple consecutive
-      measurement periods have significantly higher late-stage change
-      probability. Sustained threshold breach, not a single spike, is
-      the key indicator.
-
-    Parameters
-    ----------
-    di_history : list of float
-        DI values in chronological order (most recent last). Length 1–5.
-        Populated by appending the DI from each user upload in the same
-        Streamlit session.
-
-    Returns
-    -------
-    dict with keys:
-        risk_level   : "HIGH" | "MEDIUM" | "LOW" | "INSUFFICIENT DATA"
-        confidence   : "high" (≥3 readings) | "moderate" (2) | "low" (≤1)
-        trend        : float — di_history[-1] - di_history[0] (or 0.0)
-        above_count  : int — number of readings > 10.0
-        total_count  : int — len(di_history)
-        message      : str — human-readable risk summary
-        citation     : str — academic source
+    Sustained DI exceedance above 10% across multiple measurement
+    periods correlates with 3x higher late-stage design change probability.
     """
-    citation = (
-        "Ibbs (1997) \u2014 sustained DI exceedance correlates with "
-        "late-stage change probability"
+    _CITATION = (
+        "Ibbs (1997) J.Const.Eng.Mgmt. 123(3) — "
+        "sustained DI exceedance correlates with "
+        "3x late-stage change probability"
     )
 
-    # ── Guard: empty or single-entry history ─────────────────────────────
-    if len(di_history) < 2:
+    # ── Guard: empty list ────────────────────────────────────────────────
+    if not di_history:
         return {
             "risk_level":  "INSUFFICIENT DATA",
             "confidence":  "low",
             "trend":       0.0,
-            "above_count": sum(1 for v in di_history if v > 10.0),
-            "total_count": len(di_history),
+            "above_count": 0,
+            "total_count": 0,
             "message":     (
-                "Upload more floor data to enable trend prediction. "
-                "A minimum of 2 DI measurements is required."
+                "Upload more floor data across multiple sessions "
+                "to enable trend-based prediction."
             ),
-            "citation": citation,
+            "citation": _CITATION,
         }
 
-    # ── Core metrics ──────────────────────────────────────────────────────
-    trend               = round(di_history[-1] - di_history[0], 2)
-    above_threshold_cnt = sum(1 for v in di_history if v > 10.0)
-    n                   = len(di_history)
+    total = len(di_history)
+    above = sum(1 for v in di_history if v > 10.0)
+    trend = round(di_history[-1] - di_history[0], 2) if total >= 2 else 0.0
+    conf  = "high" if total >= 3 else ("moderate" if total == 2 else "low")
 
-    # ── Confidence ────────────────────────────────────────────────────────
-    if n >= 3:
-        confidence = "high"
-    elif n == 2:
-        confidence = "moderate"
-    else:
-        confidence = "low"
+    # ── Guard: single value ──────────────────────────────────────────────
+    if total <= 1:
+        return {
+            "risk_level":  "INSUFFICIENT DATA",
+            "confidence":  "low",
+            "trend":       0.0,
+            "above_count": above,
+            "total_count": total,
+            "message":     (
+                "Upload more floor data across multiple sessions "
+                "to enable trend-based prediction."
+            ),
+            "citation": _CITATION,
+        }
 
     # ── Risk classification (Ibbs 1997 sustained-breach logic) ───────────
     # HIGH requires BOTH conditions — a single spike is not predictive.
-    if above_threshold_cnt >= 2 and trend > 0:
-        risk_level = "HIGH"
-        message = (
-            f"Design change probability: HIGH. DI has exceeded the procurement "
-            f"risk threshold for {above_threshold_cnt} of {n} measurements "
-            f"and is trending upward (+{trend:.1f}%). "
-            "Recommend deferring procurement of unstable clusters."
+    if above >= 2 and trend > 0:
+        risk = "HIGH"
+        msg  = (
+            f"Design change probability HIGH. DI exceeded procurement "
+            f"risk threshold in {above} of {total} measurements and "
+            f"is trending upward (+{trend:.1f}pp). Defer procurement "
+            f"of unstable clusters. (Ibbs 1997)"
         )
-    elif above_threshold_cnt >= 1 or trend > 5:
-        risk_level = "MEDIUM"
-        message = (
-            "Design change probability: MEDIUM. Monitor closely. "
+    elif above >= 1 or trend > 5.0:
+        risk = "MEDIUM"
+        msg  = (
+            "Design change probability MEDIUM. Monitor closely. "
             "Procurement of stable clusters may proceed."
         )
     else:
-        risk_level = "LOW"
-        message = (
-            "Design change probability: LOW. Design appears stable. "
+        risk = "LOW"
+        msg  = (
+            "Design change probability LOW. Design appears stable. "
             "Full procurement recommended."
         )
 
     return {
-        "risk_level":  risk_level,
-        "confidence":  confidence,
+        "risk_level":  risk,
+        "confidence":  conf,
         "trend":       trend,
-        "above_count": above_threshold_cnt,
-        "total_count": n,
-        "message":     message,
-        "citation":    citation,
+        "above_count": above,
+        "total_count": total,
+        "message":     msg,
+        "citation":    _CITATION,
     }
 
 

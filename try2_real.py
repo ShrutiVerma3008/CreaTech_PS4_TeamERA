@@ -1930,54 +1930,44 @@ if st.session_state.results_ready:
                 "Ibbs (1997) Table 3."
             )
 
-        # ── Step 3: Design change trend prediction ────────────────────────
+        # ── DI Trend Prediction ──────────────────────────────────────
         st.subheader("Design change trend prediction")
-        _di_history  = st.session_state.get("di_history", [])
-        _prediction  = predict_design_change_risk(_di_history)
-        _pred_level  = _prediction["risk_level"]
-        _pred_msg    = _prediction["message"]
+        _di_hist = st.session_state.get("di_history", [])
+        _pred = predict_design_change_risk(_di_hist)
 
-        if _pred_level == "HIGH":
-            st.error(f"\U0001f534 HIGH risk: {_pred_msg}")
-        elif _pred_level == "MEDIUM":
-            st.warning(f"\U0001f7e1 MEDIUM risk: {_pred_msg}")
-        elif _pred_level == "LOW":
-            st.success(f"\U0001f7e2 LOW risk: {_pred_msg}")
-        else:
-            st.info(_pred_msg)
+        _RISK_FN = {
+            "HIGH":              st.error,
+            "MEDIUM":            st.warning,
+            "LOW":               st.success,
+            "INSUFFICIENT DATA": st.info,
+        }
+        _RISK_FN.get(_pred["risk_level"], st.info)(_pred["message"])
 
         _pc1, _pc2, _pc3 = st.columns(3)
-        _trend_val = _prediction["trend"]
-        _pc1.metric(
-            "DI trend",
-            f"+{_trend_val:.2f}%" if _trend_val > 0 else f"{_trend_val:.2f}%",
-            help="Change in DI from first to most recent measurement",
+        _trend_str = (
+            f"+{_pred['trend']:.1f}pp" if _pred["trend"] > 0
+            else f"{_pred['trend']:.1f}pp"
         )
-        _pc2.metric(
-            "Measurements above threshold",
-            f"{_prediction['above_count']} / {_prediction['total_count']}",
-            help="Number of DI readings > 10% risk threshold",
-        )
-        _pc3.metric(
-            "Prediction confidence",
-            _prediction["confidence"].capitalize(),
-            help="Based on number of DI measurements collected",
-        )
+        _pc1.metric("DI trend",
+                    _trend_str,
+                    help="Change in DI from first to latest upload")
+        _pc2.metric("Measurements above 10% threshold",
+                    f"{_pred['above_count']} / {_pred['total_count']}")
+        _pc3.metric("Prediction confidence", _pred["confidence"].title())
 
-        st.caption(
-            "Trend prediction based on DI history across uploads. "
-            "Ibbs (1997) \u2014 projects with sustained DI exceedance have 3\u00d7 higher "
-            "late-stage change probability."
-        )
-
-        # ── Step 4: DI history sparkline ──────────────────────────────────
-        if len(_di_history) >= 2:
-            _hist_df = pd.DataFrame({
-                "DI (%)": _di_history,
-                "Risk threshold": [10.0] * len(_di_history),
+        if len(_di_hist) >= 2:
+            import pandas as _pd_pred
+            _hist_df = _pd_pred.DataFrame({
+                "DI (%)":         _di_hist,
+                "Risk threshold": [10.0] * len(_di_hist),
             })
-            st.line_chart(_hist_df, use_container_width=True)
-            st.caption("DI history (last 5 uploads). Yellow line = 10% risk threshold.")
+            st.line_chart(_hist_df)
+            st.caption(
+                "DI history across uploads. Risk threshold = 10% "
+                "(Ibbs 1997 — procurement risk inflection point)."
+            )
+
+        st.caption(_pred["citation"])
 
 
     if mode == "Real Site Data" and "dq_score" in st.session_state:
