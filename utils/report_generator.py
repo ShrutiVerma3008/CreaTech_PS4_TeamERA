@@ -147,10 +147,14 @@ def _page1_summary(story, styles, metrics, project_name):
          f"Rs {metrics.get('optimized_cr', 0):.2f} Cr"],
         ["Baseline (Traditional) Cost",
          f"Rs {metrics.get('baseline_cr', 0):.2f} Cr"],
-        ["Total Savings",
-         f"Rs {metrics.get('savings_cr', 0):.2f} Cr"],
-        ["Savings Percentage",
-         f"{metrics.get('savings_pct', 0):.1f}%"],
+        ["Savings vs zero-reuse",
+         f"Rs {metrics.get('savings_cr', 0):.2f} Cr  "
+         f"({metrics.get('savings_pct', 0):.1f}%)"],
+        ["Savings vs experienced planner",
+         f"Rs {round(metrics.get('savings_vs_experienced_cr', 0), 2):.2f} Cr  "
+         f"({metrics.get('pct_vs_experienced', 0):.1f}%)"],
+        ["Experienced planner baseline",
+         f"Rs {metrics.get('experienced_baseline_cr', 0):.2f} Cr  (35% reuse assumed)"],
         ["Panel Reuse Rate",
          f"{metrics.get('overall_reuse_rate', 0) * 100:.1f}%"],
         ["Design Instability Index (DI)",
@@ -161,6 +165,10 @@ def _page1_summary(story, styles, metrics, project_name):
          str(round(metrics.get("custom_area_total", 0), 1)) + " m2"],
         ["Custom Cost Premium",
          "Rs " + str(round(metrics.get("custom_cost_premium", 0) / 1e7, 2)) + " Cr"],
+        ["Kit families identified",
+         str(metrics.get("kit_count", 0))],
+        ["Highest reuse kit",
+         str(metrics.get("highest_reuse_kit", "N/A"))],
     ]
 
     col_w = [9 * cm, 7 * cm]
@@ -169,7 +177,7 @@ def _page1_summary(story, styles, metrics, project_name):
 
     # Colour the DI row based on status
     di_status = metrics.get("di_status", "SAFE")
-    di_row = len(rows) - 3  # third-from-last row (DI row, then 2 new custom rows)
+    di_row = len(rows) - 7  # header + 2 rows after DI (custom) + 2 (kit) + 2 (exp planner) = 6 after DI
     if di_status == "HALT":
         ts.append(("BACKGROUND", (0, di_row), (-1, di_row), _IDLE_BG))
         ts.append(("TEXTCOLOR",  (1, di_row), (1, di_row), _RED))
@@ -188,6 +196,11 @@ def _page1_summary(story, styles, metrics, project_name):
         "1 Cr = Rs 1,00,00,000. "
         "Procurement costs derived from LP optimisation "
         "(Hillier & Lieberman, 2021).",
+        s["caption"],
+    ))
+    story.append(Paragraph(
+        "Experienced planner baseline: Dania et al. (2015), "
+        "J. Eng. Design Tech. 13(3) — 35% reuse midpoint without algorithmic tools.",
         s["caption"],
     ))
     story.append(PageBreak())

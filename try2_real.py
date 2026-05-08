@@ -23,7 +23,7 @@ except ImportError:
 
 # ── SKU-level LP optimizer (core module)
 try:
-    from core.lp_optimizer import run_sku_optimizer, compute_baseline
+    from core.lp_optimizer import run_sku_optimizer, compute_baseline, compute_three_baselines
     LP_MODULE_AVAILABLE = True
 except ImportError:
     LP_MODULE_AVAILABLE = False
@@ -1585,7 +1585,7 @@ if run_btn:
     # ── Clustering
     with st.spinner("\U0001f9e0  Running DBSCAN Repetition Clustering..."):
         (df_floors, rep_score, cluster_summary,
-         rho_k_map, reuse_pairs, overall_reuse) = compute_repetition_score(
+         rho_k_map, reuse_pairs, overall_reuse, kit_families) = compute_repetition_score(
             df_floors, transport_weeks=int(transport_weeks)
         )
         time.sleep(0.1)
@@ -1635,6 +1635,8 @@ if run_btn:
     st.session_state.rho_k_map        = rho_k_map
     st.session_state.reuse_pairs      = reuse_pairs
     st.session_state.overall_reuse    = overall_reuse
+    st.session_state.kit_families     = kit_families
+    st.session_state.kit_count        = len([k for k in kit_families if k["cluster_id"] != -1])
     st.session_state.transport_weeks  = int(transport_weeks)
     st.session_state.lp_results       = lp_results
     # Step 5: enrich boq_results with effective_strip_week for PDF Page 3
@@ -1654,6 +1656,17 @@ if run_btn:
     # STEP 5: Store reuse rate for PDF export
     st.session_state["overall_reuse_rate"] = overall_reuse
 
+    # ── Three-baseline savings comparison (Dania et al. 2015) ────────────
+    _three_bl = compute_three_baselines(
+        zero_baseline=float(baseline_total),
+        optimized_total=float(optimized_total),
+        c_p=float(c_p),
+    )
+    st.session_state["three_baselines"]         = _three_bl
+    st.session_state["experienced_baseline"]    = _three_bl["experienced_planner_cost"]
+    st.session_state["savings_vs_experienced"]  = _three_bl["savings_vs_experienced"]
+    st.session_state["pct_vs_experienced"]      = _three_bl["pct_vs_experienced"]
+
     # success toast
     savings_cr = lp_results["savings"] / 1e7
     st.success(f"✅  FormOptiX Engine complete — Repetition Score: {rep_score}% | Projected savings: ₹{savings_cr:.2f} Cr")
@@ -1667,6 +1680,8 @@ if st.session_state.results_ready:
     rho_k_map        = st.session_state.get("rho_k_map", {})
     reuse_pairs      = st.session_state.get("reuse_pairs", [])
     overall_reuse    = st.session_state.get("overall_reuse", 0.0)
+    kit_families     = st.session_state.get("kit_families", [])
+    kit_count        = st.session_state.get("kit_count", 0)
     _transport_weeks = st.session_state.get("transport_weeks", 1)
     lp_results       = st.session_state.lp_results
     boq_results      = st.session_state.get("boq_results", [])
@@ -1686,6 +1701,14 @@ if st.session_state.results_ready:
         (savings_cr / trad_total_cr * 100) if trad_total_cr > 0 else 0
     )
     formwork_cost   = project_cost * 0.08
+
+    # ── Three-baseline data from session_state ────────────────────────────
+    _three_bl             = st.session_state.get("three_baselines", {})
+    _experienced_cr       = st.session_state.get("experienced_baseline", 0) / 1e7
+    _savings_vs_exp       = st.session_state.get("savings_vs_experienced", 0) / 1e7
+    _pct_vs_exp           = st.session_state.get("pct_vs_experienced", 0)
+    _pct_vs_zero          = _three_bl.get("pct_vs_zero", saving_pct)
+    _demo_warning         = _three_bl.get("demo_warning", False)
 
     # Development note: optimized should always be <= baseline
     # by LP theory (Hillier & Lieberman, 2021 Ch.3).
@@ -1948,6 +1971,47 @@ if st.session_state.results_ready:
 
         # Heatmap below
         st.plotly_chart(make_floor_heatmap(df_floors), use_container_width=True)
+
+        # ── Formwork Kit Families ─────────────────────────────────────────
+        st.markdown("<div class='section-header'>🧰 Formwork Kit Families</div>", unsafe_allow_html=True)
+        if kit_families:
+            for kit in kit_families:
+                _reuse_pot = kit["reuse_potential"]
+                if _reuse_pot == "HIGH":
+                    _bclr = "#1D9E75"
+                elif _reuse_pot == "MEDIUM":
+                    _bclr = "#BA7517"
+                else:
+                    _bclr = "#888780"
+
+                st.markdown(
+                    f"<div style='border:2px solid {_bclr}; border-radius:6px; padding:10px; margin-bottom:10px;'>",
+                    unsafe_allow_html=True
+                )
+                _kc1, _kc2 = st.columns(2)
+                with _kc1:
+                    st.markdown(f"**{kit['kit_id']}** &bull; {kit['floor_count']} floors &bull; **{_reuse_pot}** reuse")
+                    st.markdown(f"**SKU:** {kit['primary_sku']}")
+                    # Show some floor ids if there are too many, truncate
+                    _fids = kit["floor_ids"]
+                    if len(_fids) > 6:
+                        _fid_str = ", ".join(_fids[:6]) + "..."
+                    else:
+                        _fid_str = ", ".join(_fids)
+                    st.caption(f"Floors: {_fid_str}")
+                with _kc2:
+                    st.markdown(f"**Est. wall panels:** {kit['est_wall_panels']}")
+                    st.markdown(f"**Est. slab panels:** {kit['est_slab_panels']}")
+                    st.markdown(f"**Est. corner pieces:** {kit['est_corner_pieces']}")
+                    st.markdown(f"**Transport trips:** {kit['est_transport_trips']}")
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            st.caption(
+                "Panel estimates use Peurifoy & Oberlender (2010) coverage ratios. "
+                "Actual counts require panel layout drawings (Phase 2 — BIM input)."
+            )
+        else:
+            st.info("No kit families found.")
 
         # ── Panel Reuse Intelligence ──────────────────────────────────────
         # Step 6: Overall reuse rate validated against Peurifoy & Oberlender
@@ -2242,42 +2306,49 @@ if st.session_state.results_ready:
     # ──────────────────────────────────────────────
     with tab2:
 
-        # Animated ROI counter
-        st.markdown("<div class='section-header'>💵 ROI Counter</div>", unsafe_allow_html=True)
+        # Three-baseline savings analysis
+        st.subheader("Savings analysis \u2014 three baselines")
 
-        roi_c1, roi_c2, roi_c3, roi_c4 = st.columns(4)
+        roi_c1, roi_c2, roi_c3 = st.columns(3)
         with roi_c1:
-            st.markdown(f"""
-            <div class='metric-card' style='border-color:#22C55E;'>
-              <div class='metric-value' style='color:#22C55E;'>₹{savings_cr:.2f} Cr</div>
-              <div class='metric-label'>Total Projected Savings</div>
-              <div class='metric-delta-pos'>per ₹{project_cost} Cr project</div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.metric(
+                label="\U0001f3db\ufe0f Zero-reuse baseline",
+                value=f"\u20b9{trad_total_cr:.2f} Cr",
+            )
+            st.caption("100% new procurement every floor")
         with roi_c2:
-            st.markdown(f"""
-            <div class='metric-card'>
-              <div class='metric-value'>₹{trad_total_cr:.2f} Cr</div>
-              <div class='metric-label'>Traditional Formwork Cost</div>
-              <div class='metric-delta-neg'>without optimization</div>
-            </div>
-            """, unsafe_allow_html=True)
+            _exp_delta_cr = trad_total_cr - _experienced_cr
+            st.metric(
+                label="\U0001f4cb Experienced planner baseline",
+                value=f"\u20b9{_experienced_cr:.2f} Cr",
+                delta=f"-\u20b9{_exp_delta_cr:.2f} Cr vs zero-reuse",
+            )
+            st.caption("35% reuse \u2014 industry avg (Dania et al.\u00a02015)")
         with roi_c3:
-            st.markdown(f"""
-            <div class='metric-card' style='border-color:#14B8A6;'>
-              <div class='metric-value' style='color:#14B8A6;'>₹{opt_total_cr:.2f} Cr</div>
-              <div class='metric-label'>FormOptiX Optimized Cost</div>
-              <div class='metric-delta-pos'>LP-optimized procurement</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with roi_c4:
-            st.markdown(f"""
-            <div class='metric-card' style='border-color:#F59E0B;'>
-              <div class='metric-value' style='color:#F59E0B;'>{saving_pct:.1f}%</div>
-              <div class='metric-label'>Cost Reduction</div>
-              <div class='metric-delta-pos'>vs manual planning</div>
-            </div>
-            """, unsafe_allow_html=True)
+            if _demo_warning:
+                _delta_str = "0.0% vs experienced planner"
+            else:
+                _delta_str = f"-\u20b9{_savings_vs_exp:.2f} Cr vs experienced planner"
+            st.metric(
+                label="\U0001f916 FormOptiX optimized",
+                value=f"\u20b9{opt_total_cr:.2f} Cr",
+                delta=_delta_str,
+            )
+            st.caption("LP optimized reuse")
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        if _demo_warning:
+            st.info(
+                "Demo dataset uses synthetic cost assumptions. "
+                "Real-site calibration required for experienced planner comparison."
+            )
+
+        st.success(
+            f"FormOptiX saves **{_pct_vs_zero:.1f}%** vs zero-reuse baseline "
+            f"and **{_pct_vs_exp:.1f}%** vs experienced planner benchmark "
+            "(Dania et al.\u00a02015, Peurifoy & Oberlender 2010)."
+        )
 
         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -2541,6 +2612,20 @@ if st.session_state.results_ready:
                     "custom_area_total":   st.session_state.get("custom_area_total", 0),
                     "custom_cost_premium": st.session_state.get("custom_cost_premium", 0),
                 }
+
+                _kf = st.session_state.get("kit_families", [])
+                _metrics["kit_count"] = st.session_state.get("kit_count", 0)
+                if _kf:
+                    _best_kit = max(_kf, key=lambda x: x.get("floor_count", 0))
+                    _metrics["highest_reuse_kit"] = _best_kit.get("kit_id", "N/A")
+                else:
+                    _metrics["highest_reuse_kit"] = "N/A"
+
+                # Three-baseline PDF metrics
+                _metrics["experienced_baseline_cr"]  = st.session_state.get("experienced_baseline", 0) / 1e7
+                _metrics["savings_vs_experienced_cr"] = st.session_state.get("savings_vs_experienced", 0) / 1e7
+                _metrics["pct_vs_experienced"]        = st.session_state.get("pct_vs_experienced", 0)
+
                 try:
                     _pdf_bytes = generate_boq_pdf(
                         boq_df=df_boq,

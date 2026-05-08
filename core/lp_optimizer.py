@@ -171,6 +171,76 @@ def _jit_fallback(sku: str, demand_by_week: dict, reuse_by_week: dict,
 # Public interface
 # ──────────────────────────────────────────────────────────────────────────────
 
+def compute_three_baselines(zero_baseline: float, optimized_total: float, c_p: float) -> dict:
+    """
+    Return a three-way savings comparison against academically sourced baselines.
+
+    Baselines:
+      1. Zero-reuse    — 100% new procurement every floor (current compute_baseline).
+      2. Experienced planner — 35% reuse midpoint, no algorithmic tool.
+         Source: Dania et al. (2015), J. Eng. Design Tech. 13(3).
+         "typical reuse rate without optimization tools: 30–40%".
+      3. FormOptiX LP — current optimized_total.
+
+    Parameters
+    ----------
+    zero_baseline   : float — result of compute_baseline() (₹)
+    optimized_total : float — LP result (₹)
+    c_p             : float — unit panel cost (unused numerically, kept for
+                              future SKU-specific calibration)
+
+    Returns
+    -------
+    dict with keys:
+        zero_reuse_cost           : float
+        experienced_planner_cost  : float  (= zero_baseline × 0.65)
+        formoptix_cost            : float  (= optimized_total)
+        savings_vs_zero           : float  (floored at 0)
+        savings_vs_experienced    : float  (floored at 0)
+        pct_vs_zero               : float  (% savings vs zero baseline)
+        pct_vs_experienced        : float  (% savings vs experienced planner)
+        demo_warning              : bool   (True if FormOptiX ≥ experienced baseline)
+    """
+    if zero_baseline <= 0:
+        return {
+            "zero_reuse_cost":          0.0,
+            "experienced_planner_cost": 0.0,
+            "formoptix_cost":           float(optimized_total),
+            "savings_vs_zero":          0.0,
+            "savings_vs_experienced":   0.0,
+            "pct_vs_zero":              0.0,
+            "pct_vs_experienced":       0.0,
+            "demo_warning":             False,
+        }
+
+    experienced = round(zero_baseline * 0.65, 2)
+
+    svz = round(zero_baseline - optimized_total, 2)
+    sve = round(experienced  - optimized_total, 2)
+
+    # FormOptiX cannot be worse than experienced planner on well-formed data.
+    # Floor negative savings at 0; set demo_warning flag for the UI.
+    demo_warning = sve < 0
+    sve = max(sve, 0.0)
+
+    pct_vs_zero         = round((1 - optimized_total / zero_baseline) * 100, 2)
+    pct_vs_experienced  = round((1 - optimized_total / experienced)   * 100, 2) if experienced > 0 else 0.0
+    # Floor pct_vs_experienced at 0 when demo_warning is active
+    if demo_warning:
+        pct_vs_experienced = 0.0
+
+    return {
+        "zero_reuse_cost":          round(zero_baseline,    2),
+        "experienced_planner_cost": round(experienced,      2),
+        "formoptix_cost":           round(optimized_total,  2),
+        "savings_vs_zero":          max(svz, 0.0),
+        "savings_vs_experienced":   sve,
+        "pct_vs_zero":              pct_vs_zero,
+        "pct_vs_experienced":       pct_vs_experienced,
+        "demo_warning":             demo_warning,
+    }
+
+
 def compute_baseline(df_schedule: pd.DataFrame, c_p: float, **_) -> float:
     """
     Baseline cost: procure every panel fresh every week, no reuse, no holding.
