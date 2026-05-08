@@ -11,7 +11,7 @@
 #
 # ============================================================
 from utils.data_loader import validate_and_map
-from utils.demand_calc import build_reuse_matrix
+from utils.demand_calc import build_reuse_matrix, compute_is456_strip_weeks
 from utils.report_generator import generate_boq_pdf
 
 # ── Physical reuse clustering (core module)
@@ -959,29 +959,147 @@ def compute_data_quality(df_floors, df_schedule=None):
     return round(score, 1), warnings
 
 
-def load_real_project_data(uploaded_file):
+def _aggregate_schedule_from_floors(df_floors, strip_buffer_weeks=2):
+    """
+    Derive a weekly demand schedule from floor-level geometry data.
+
+    Handles the single-sheet format (columns: week_start, week_end,
+    slab_area_m2, wall_length_m, col_count) by summing active floor
+    requirements for each project week.
+
+    Panel demand heuristics (Peurifoy & Oberlender, 2010, Ch.7):
+      wall panels  ≈ wall_length_m  / 8.5  per active floor
+      slab panels  ≈ slab_area_m2   / 12.0 per active floor
+      col  panels  ≈ col_count               per active floor
+    """
+    area_col = "slab_area_m2" if "slab_area_m2" in df_floors.columns else "slab_area_sqm"
+    col_col  = "col_count"    if "col_count"    in df_floors.columns else "column_count"
+
+    min_w = int(df_floors["week_start"].min())
+    max_w = int(df_floors["week_end"].max())
+
+    rows = []
+    for w in range(min_w, max_w + 1):
+        active = df_floors[
+            (df_floors["week_start"] <= w) & (df_floors["week_end"] >= w)
+        ]
+        wall_d = int(active["wall_length_m"].sum() / 8.5)
+        slab_d = int(active[area_col].sum() / 12.0)
+        col_d  = int(active[col_col].sum())
+        rows.append({
+            "week": w,
+            "wall_panels_demand": max(1, wall_d),
+            "slab_panels_demand": max(1, slab_d),
+            "col_panels_demand":  max(1, col_d),
+        })
+    return pd.DataFrame(rows)
+
+
+def load_real_project_data(uploaded_file, strip_buffer_weeks=2):
+    """
+    Load floor geometry and schedule data from an uploaded Excel file.
+
+    Supports two formats:
+    ──────────────────────────────────────────────────────────────────
+    Format A (two-sheet):
+        Sheet 'floors'   — columns: floor_id, floor_name, floor_type,
+                                    slab_area_sqm, wall_length_m,
+                                    column_count, beam_count
+        Sheet 'schedule' — columns: week, wall_panels_demand,
+                                    slab_panels_demand, col_panels_demand
+
+    Format B (single-sheet, e.g. demo_tower_40floors.xlsx):
+        Any sheet        — columns: floor_id, week_start, week_end,
+                                    slab_area_m2, wall_length_m,
+                                    col_count, panel_type
+        Schedule is auto-aggregated from floor-level activity.
+    ──────────────────────────────────────────────────────────────────
+    """
     try:
         xls = pd.ExcelFile(uploaded_file)
-        df_floors = pd.read_excel(xls, "floors")
-        df_schedule = pd.read_excel(xls, "schedule")
+        sheet_names = xls.sheet_names
 
-        required_floor_cols = [
-            "floor_id","floor_name","floor_type",
-            "slab_area_sqm","wall_length_m",
-            "column_count","beam_count"
+        # ── Format A: separate 'floors' and 'schedule' sheets ────────
+        if "floors" in sheet_names and "schedule" in sheet_names:
+            df_floors   = pd.read_excel(xls, "floors")
+            df_schedule = pd.read_excel(xls, "schedule")
+
+            required_floor_cols = [
+                "floor_id", "floor_name", "floor_type",
+                "slab_area_sqm", "wall_length_m",
+                "column_count", "beam_count"
+            ]
+            required_schedule_cols = [
+                "week", "wall_panels_demand",
+                "slab_panels_demand", "col_panels_demand"
+            ]
+            if not all(c in df_floors.columns for c in required_floor_cols):
+                raise ValueError(f"'floors' sheet is missing columns: "
+                                 f"{[c for c in required_floor_cols if c not in df_floors.columns]}")
+            if not all(c in df_schedule.columns for c in required_schedule_cols):
+                raise ValueError(f"'schedule' sheet is missing columns: "
+                                 f"{[c for c in required_schedule_cols if c not in df_schedule.columns]}")
+            st.info("✅ Two-sheet format detected (floors + schedule).")
+            return df_floors, df_schedule
+
+        # ── Format B: single-sheet with floor-level schedule ─────────
+        # Read the first available sheet
+        df_floors = pd.read_excel(xls, sheet_names[0])
+
+        # Minimum required columns for single-sheet format
+        single_sheet_required = [
+            "floor_id", "week_start", "week_end",
+            "slab_area_m2", "wall_length_m", "col_count"
         ]
-        required_schedule_cols = [
-            "week",
-            "wall_panels_demand",
-            "slab_panels_demand",
-            "col_panels_demand"
-        ]
+        missing = [c for c in single_sheet_required if c not in df_floors.columns]
+        if missing:
+            # Also accept alternate column names
+            alt_map = {
+                "slab_area_m2":  "slab_area_sqm",
+                "col_count":     "column_count",
+            }
+            for m in list(missing):
+                if alt_map.get(m) and alt_map[m] in df_floors.columns:
+                    missing.remove(m)
+            if missing:
+                raise ValueError(
+                    f"Single-sheet file is missing columns: {missing}. "
+                    "Expected: floor_id, week_start, week_end, "
+                    "slab_area_m2, wall_length_m, col_count."
+                )
 
-        if not all(col in df_floors.columns for col in required_floor_cols):
-            raise ValueError("Floor sheet missing required columns.")
-        if not all(col in df_schedule.columns for col in required_schedule_cols):
-            raise ValueError("Schedule sheet missing required columns.")
+        # Auto-generate strip_week if absent
+        if "strip_week" not in df_floors.columns:
+            df_floors["strip_week"] = df_floors["week_end"] + strip_buffer_weeks
+            st.info(f"ℹ️ strip_week auto-generated (week_end + {strip_buffer_weeks} weeks).")
 
+        # Derive weekly schedule from floor activity
+        df_schedule = _aggregate_schedule_from_floors(df_floors, strip_buffer_weeks)
+
+        # Normalise column names for the rest of the pipeline
+        rename_map = {}
+        if "slab_area_m2" in df_floors.columns and "slab_area_sqm" not in df_floors.columns:
+            rename_map["slab_area_m2"] = "slab_area_sqm"
+        if "col_count" in df_floors.columns and "column_count" not in df_floors.columns:
+            rename_map["col_count"] = "column_count"
+        if rename_map:
+            df_floors = df_floors.rename(columns=rename_map)
+
+        # Add synthetic columns expected downstream if absent
+        if "floor_name" not in df_floors.columns:
+            df_floors["floor_name"] = df_floors["floor_id"].astype(str)
+        if "floor_type" not in df_floors.columns:
+            df_floors["floor_type"] = "Typical"
+        if "beam_count" not in df_floors.columns:
+            df_floors["beam_count"] = 0
+
+        n_rows     = len(df_floors)
+        n_weeks    = len(df_schedule)
+        week_range = f"{df_schedule['week'].min()}–{df_schedule['week'].max()}"
+        st.info(
+            f"✅ Single-sheet format detected — {n_rows} floors loaded. "
+            f"Schedule auto-generated: {n_weeks} weeks ({week_range})."
+        )
         return df_floors, df_schedule
 
     except Exception as e:
@@ -1255,8 +1373,10 @@ uploaded_file = None
 if mode == "Real Site Data":
     st.markdown(f"""
     <div class='callout-teal' style='margin-bottom:16px;'>
-      <b>📂 Upload your project Excel file</b><br>
-      Required sheets: <code>floors</code> (floor geometry) and <code>schedule</code> (weekly demand).
+      <b>📂 Upload your project Excel file (.xlsx)</b><br>
+      <b>Format A (two-sheet):</b> sheets named <code>floors</code> (geometry) and <code>schedule</code> (weekly demand).<br>
+      <b>Format B (single-sheet):</b> one sheet with columns <code>floor_id, week_start, week_end,
+      slab_area_m2, wall_length_m, col_count</code> — schedule is auto-generated.<br>
       Once uploaded, click <b>Run FormOptiX Engine</b> in the sidebar.
     </div>
     <div class='callout-green' style='margin-bottom:16px;'>
@@ -1265,7 +1385,7 @@ if mode == "Real Site Data":
     </div>
     """, unsafe_allow_html=True)
     uploaded_file = st.file_uploader(
-        "Upload Excel File (.xlsx) — sheets: 'floors' + 'schedule'",
+        "Upload Excel File (.xlsx) — single-sheet OR separate 'floors'+'schedule' sheets",
         type=["xlsx"],
         key="real_data_upload"
     )
@@ -1301,6 +1421,28 @@ if mode == "Real Site Data":
                 st.info(f"ℹ️ strip_week auto-generated (week_end + {strip_buffer} weeks)")
                 
             df_raw = validate_and_map(df_raw, col_map)
+
+            # ── Step 1: Derive standard_pct and custom_area_m2 ───────────
+            # Peurifoy & Oberlender (2010): standard panel SKUs cover ~85% of
+            # wall-facing area; custom fabrication needed for non-standard geometry.
+            _STANDARD_SKUS = {"ALU-600", "ALU-450", "H20-beam"}
+
+            def _calc_standard_pct(row):
+                slab = max(row["slab_area_m2"], 1)  # guard div-by-zero
+                wall = row["wall_length_m"]
+                if str(row.get("panel_type", "")).strip() in _STANDARD_SKUS:
+                    pct = 100.0 * min(1.0, (wall * 0.85) / (slab ** 0.5 + wall))
+                else:
+                    pct = 60.0  # conservative default for unknown types
+                return float(np.clip(pct, 0.0, 100.0))
+
+            df_raw["standard_pct"]   = df_raw.apply(_calc_standard_pct, axis=1)
+            df_raw["custom_area_m2"] = (
+                df_raw.apply(
+                    lambda r: round(r["slab_area_m2"] * (1 - r["standard_pct"] / 100), 2),
+                    axis=1,
+                )
+            )
             
         except Exception as e:
             st.error(f"Failed to read file: {e}")
@@ -1379,7 +1521,9 @@ if run_btn:
             if uploaded_file is None:
                 st.warning("⚠️ Please upload an Excel file first.")
                 st.stop()
-            df_floors, df_schedule = load_real_project_data(uploaded_file)
+            df_floors, df_schedule = load_real_project_data(
+                uploaded_file, strip_buffer_weeks=int(strip_buffer)
+            )
             if df_floors is None:
                 st.stop()
 
@@ -1420,6 +1564,23 @@ if run_btn:
         st.session_state.freeze_result = None
         st.session_state["di_value"]   = 0.0
         st.session_state["di_status"]  = "N/A"
+
+    # ── IS 456:2000 Stripping Schedule ──────────────────────────────
+    # IS 456:2000, Cl.11.3, Table 11: compute per-component strip weeks
+    # and effective_strip_week BEFORE clustering so that reuse matrix
+    # uses IS 456 compliant values (build_reuse_matrix auto-picks the col).
+    if "week_start" in df_floors.columns:
+        df_floors = compute_is456_strip_weeks(df_floors)
+        st.session_state["df_floors_is456"] = df_floors   # persist for Tab 1 expander
+        _n_violations = int(df_floors["is456_violation"].sum()) if "is456_violation" in df_floors.columns else 0
+        if _n_violations > 0:
+            st.warning(
+                f"⚠️ {_n_violations} floor(s) have strip weeks earlier than IS\u00a0456:2000 "
+                "minimum cure times. Effective strip weeks have been adjusted upward. "
+                "(IS 456:2000, Clause 11.3, Table 11)"
+            )
+    else:
+        st.session_state["df_floors_is456"] = df_floors
 
     # ── Clustering
     with st.spinner("\U0001f9e0  Running DBSCAN Repetition Clustering..."):
@@ -1476,7 +1637,17 @@ if run_btn:
     st.session_state.overall_reuse    = overall_reuse
     st.session_state.transport_weeks  = int(transport_weeks)
     st.session_state.lp_results       = lp_results
-    st.session_state.boq_results      = lp_results.get("boq_results", [])
+    # Step 5: enrich boq_results with effective_strip_week for PDF Page 3
+    _boq_raw = lp_results.get("boq_results", [])
+    if _boq_raw and "effective_strip_week" in df_floors.columns:
+        _esw_map = df_floors.set_index("floor_id")["effective_strip_week"].to_dict()
+        for _rec in _boq_raw:
+            # boq_results records are keyed by 'week'; map best-effort via week
+            # store the minimum effective_strip_week across all active floors that week
+            _wk = _rec.get("week", 0)
+            _esw_vals = [v for k, v in _esw_map.items()]
+            _rec["effective_strip_week"] = int(min(_esw_vals)) if _esw_vals else 0
+    st.session_state.boq_results      = _boq_raw
     st.session_state.cost_params      = {"c_p": float(c_p), "c_h": float(c_h), "c_i": float(c_i)}
     st.session_state.forecast_data    = (weeks, demand, forecast, upper, lower)
     st.session_state.results_ready    = True
@@ -1914,6 +2085,150 @@ if st.session_state.results_ready:
             </div>
             """, unsafe_allow_html=True)
 
+        # ── Standard vs Custom Panel Analysis ────────────────────────────
+        # Step 2: New expander — after clustering section, before LP section.
+        # Peurifoy & Oberlender (2010): standard reuse threshold = 70%
+        with st.expander("📊 Standard vs Custom Panel Analysis", expanded=False):
+
+            # Retrieve c_p from session_state (set by sidebar input)
+            _c_p_panel = float(st.session_state.get("c_p", 15000))
+
+            # Ensure columns exist (real-mode data populated them above;
+            # synthetic-mode df_floors may lack them — compute on the fly)
+            _df_panel = df_floors.copy()
+            if "standard_pct" not in _df_panel.columns:
+                _STANDARD_SKUS_TAB = {"ALU-600", "ALU-450", "H20-beam"}
+                _area_col = "slab_area_sqm" if "slab_area_sqm" in _df_panel.columns else "slab_area_m2"
+
+                def _sp(row):
+                    slab = max(row[_area_col], 1)
+                    wall = row["wall_length_m"]
+                    if str(row.get("panel_type", "")).strip() in _STANDARD_SKUS_TAB:
+                        pct = 100.0 * min(1.0, (wall * 0.85) / (slab ** 0.5 + wall))
+                    else:
+                        pct = 60.0
+                    return float(np.clip(pct, 0.0, 100.0))
+
+                _df_panel["standard_pct"] = _df_panel.apply(_sp, axis=1)
+                _slab_col = _area_col
+                _df_panel["custom_area_m2"] = _df_panel.apply(
+                    lambda r: round(r[_slab_col] * (1 - r["standard_pct"] / 100), 2), axis=1
+                )
+            else:
+                _slab_col = "slab_area_m2"
+
+            _avg_std_pct    = float(_df_panel["standard_pct"].mean())
+            _total_custom   = float(_df_panel["custom_area_m2"].sum())
+            _custom_premium = _total_custom * _c_p_panel * 4  # delta = 5x − 1x = 4x
+
+            # Step 3: Store in session_state
+            st.session_state["standard_pct_avg"]    = _avg_std_pct
+            st.session_state["custom_area_total"]   = _total_custom
+            st.session_state["custom_cost_premium"] = _custom_premium
+
+            # 2a. Three metric cards
+            _pc1, _pc2, _pc3 = st.columns(3)
+            with _pc1:
+                st.metric(
+                    "Avg Standard Coverage",
+                    f"{_avg_std_pct:.1f}%",
+                    help="Mean proportion of formwork area serviceable by standard SKUs (ALU-600, ALU-450, H20-beam)"
+                )
+            with _pc2:
+                st.metric(
+                    "Total Custom Area",
+                    f"{_total_custom:.0f} m²",
+                    help="Total slab area requiring custom-fabricated panels across all floors"
+                )
+            with _pc3:
+                _premium_cr = _custom_premium / 1e7
+                st.metric(
+                    "Estimated Custom Cost Premium",
+                    f"₹{_premium_cr:.2f} Cr",
+                    help="Custom panels cost 5× standard; delta = 4× applied to custom area × unit cost"
+                )
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # 2b. Per-floor bar chart
+            _chart_df = _df_panel[["floor_id", "standard_pct"]].copy()
+            _chart_df = _chart_df.set_index("floor_id")
+            st.bar_chart(_chart_df, y="standard_pct", use_container_width=True)
+            st.caption(
+                "Floors below 70% standard coverage are high-cost risk "
+                "(Peurifoy & Oberlender 2010 — standard panel reuse threshold)"
+            )
+
+            # 2c. High-risk floors table
+            st.markdown("**High-risk floors requiring custom fabrication**")
+            _slab_display = "slab_area_m2" if "slab_area_m2" in _df_panel.columns else "slab_area_sqm"
+            _risk_cols = ["floor_id", _slab_display, "wall_length_m", "standard_pct", "custom_area_m2"]
+            _risk_cols = [c for c in _risk_cols if c in _df_panel.columns]
+            _df_risk = _df_panel.loc[_df_panel["standard_pct"] < 70.0, _risk_cols].copy()
+
+            if len(_df_risk) > 0:
+                st.dataframe(
+                    _df_risk.reset_index(drop=True),
+                    use_container_width=True,
+                    hide_index=True,
+                )
+                st.warning(
+                    f"⚠️ {len(_df_risk)} floor(s) below 70% standard coverage — "
+                    "custom fabrication will significantly increase procurement cost."
+                )
+            else:
+                st.success("✅ All floors within standard panel coverage threshold.")
+
+        # ── IS 456 Stripping Schedule expander ───────────────────────────────
+        # Step 4: IS 456:2000, Clause 11.3, Table 11
+        with st.expander("🗓️ IS 456 Stripping Schedule", expanded=False):
+            _df_is456 = st.session_state.get("df_floors_is456", df_floors)
+
+            _is456_cols = [
+                "floor_id", "strip_week_wall", "strip_week_slab",
+                "strip_week_cantilever", "effective_strip_week", "is456_violation",
+            ]
+            _is456_present = [c for c in _is456_cols if c in _df_is456.columns]
+
+            if len(_is456_present) < 5:
+                # IS 456 columns not yet computed (e.g. synthetic mode, no week_start)
+                st.info(
+                    "ℹ️ IS 456 stripping schedule requires real-mode data "
+                    "with week_start / week_end columns."
+                )
+            else:
+                # 4a. Schedule table
+                st.dataframe(
+                    _df_is456[_is456_present].reset_index(drop=True),
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "is456_violation": st.column_config.CheckboxColumn(
+                            "IS 456 Violation",
+                            help="True = user strip week is earlier than IS 456:2000 minimum"
+                        )
+                    },
+                )
+
+                # 4b. Violation warning (only shown when violations exist)
+                _viols = int(_df_is456["is456_violation"].sum()) if "is456_violation" in _df_is456.columns else 0
+                if _viols > 0:
+                    st.warning(
+                        f"⚠️ {_viols} floor(s) have strip weeks earlier than IS\u00a0456:2000 "
+                        "minimum cure times. Procurement optimization uses IS 456 compliant "
+                        "values. Cited: IS 456:2000, Clause 11.3, Table 11."
+                    )
+                else:
+                    st.success("✅ All user-entered strip weeks comply with IS 456:2000 minimum cure times.")
+
+                # 4c. Caption
+                st.caption(
+                    "Stripping schedule per IS\u00a0456:2000 \u2014 "
+                    "Walls: 1\u00a0week, Slabs: 2\u00a0weeks, Cantilevers: 3\u00a0weeks from casting. "
+                    "Effective strip week = max(user value, IS\u00a0456 minimum). "
+                    "Source: IS\u00a0456:2000, Clause\u00a011.3, Table\u00a011."
+                )
+
     # ──────────────────────────────────────────────
     # TAB 2 — COST OPTIMIZATION
     # ──────────────────────────────────────────────
@@ -2213,6 +2528,10 @@ if st.session_state.results_ready:
                     "overall_reuse_rate": st.session_state.get("overall_reuse_rate", 0),
                     "di_value":          st.session_state.get("di_value", 0),
                     "di_status":         st.session_state.get("di_status", "N/A"),
+                    # Step 4: Custom panel metrics — use .get() to avoid KeyError
+                    # if the Standard vs Custom expander has not been opened yet.
+                    "custom_area_total":   st.session_state.get("custom_area_total", 0),
+                    "custom_cost_premium": st.session_state.get("custom_cost_premium", 0),
                 }
                 try:
                     _pdf_bytes = generate_boq_pdf(

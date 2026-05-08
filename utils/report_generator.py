@@ -156,6 +156,11 @@ def _page1_summary(story, styles, metrics, project_name):
         ["Design Instability Index (DI)",
          (f"{metrics.get('di_value', 0):.1f}%  "
           f"({metrics.get('di_status', 'N/A')})")],
+        # Step 4 — Custom panel metrics (Peurifoy & Oberlender 2010)
+        ["Custom Panel Area",
+         str(round(metrics.get("custom_area_total", 0), 1)) + " m2"],
+        ["Custom Cost Premium",
+         "Rs " + str(round(metrics.get("custom_cost_premium", 0) / 1e7, 2)) + " Cr"],
     ]
 
     col_w = [9 * cm, 7 * cm]
@@ -164,7 +169,7 @@ def _page1_summary(story, styles, metrics, project_name):
 
     # Colour the DI row based on status
     di_status = metrics.get("di_status", "SAFE")
-    di_row = len(rows) - 1  # last row
+    di_row = len(rows) - 3  # third-from-last row (DI row, then 2 new custom rows)
     if di_status == "HALT":
         ts.append(("BACKGROUND", (0, di_row), (-1, di_row), _IDLE_BG))
         ts.append(("TEXTCOLOR",  (1, di_row), (1, di_row), _RED))
@@ -280,17 +285,21 @@ def _page3_delivery(story, styles, delivery_df):
     today_week = date.today().isocalendar().week
 
     header = ["SKU", "Week to Order", "Qty to Order",
-              "Est. Delivery Wk", "Procurement Cost (Rs)"]
+              "Est. Delivery Wk", "IS 456 strip (wk)", "Procurement Cost (Rs)"]
     rows = [header]
     urgent_rows = []
 
     for idx, row in delivery_df.iterrows():
         delivery_wk = int(row.get("estimated_delivery_week", 0))
+        # IS 456:2000, Cl.11.3 — effective_strip_week populated by try2_real.py
+        is456_wk = row.get("effective_strip_week", None)
+        is456_str = str(int(is456_wk)) if is456_wk is not None and str(is456_wk) != "nan" else "—"
         data_row = [
             str(row.get("sku", "")),
             str(int(row.get("week", 0))),
             str(int(row.get("procure", 0))),
             str(delivery_wk),
+            is456_str,
             f"{int(row.get('week_cost', 0)):,}",
         ]
         rows.append(data_row)
@@ -298,7 +307,8 @@ def _page3_delivery(story, styles, delivery_df):
         if delivery_wk <= today_week + 2:
             urgent_rows.append(ri)
 
-    col_w = [2.5*cm, 3.0*cm, 3.0*cm, 3.5*cm, 4.2*cm]
+    # Slightly narrower col_w to accommodate new column within A4 margins
+    col_w = [2.0*cm, 2.5*cm, 2.5*cm, 2.8*cm, 2.8*cm, 3.2*cm]
     tbl = Table(rows, colWidths=col_w, repeatRows=1)
     ts = _header_style(col_w)
 
@@ -418,6 +428,8 @@ def generate_boq_pdf(
                      overall_reuse_rate — 0..1 float
                      di_value      — Design Instability Index (%)
                      di_status     — "SAFE" | "WARNING" | "HALT"
+                     custom_area_total   — total custom-panel area (m²) [optional, default 0]
+                     custom_cost_premium — 4× premium over standard panels (Rs) [optional, default 0]
     project_name : String for the PDF header subtitle.
 
     Returns
