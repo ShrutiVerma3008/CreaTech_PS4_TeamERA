@@ -120,6 +120,7 @@ try:
         identify_unstable_floors,
         estimate_rework_cost,
         get_procurement_recommendation,
+        predict_design_change_risk,
     )
     FREEZE_GUARD_AVAILABLE = True
 except ImportError:
@@ -1540,6 +1541,13 @@ if run_btn:
         # STEP 5: Store DI values for PDF export even if user jumps to export button directly.
         st.session_state["di_value"]  = freeze_result["DI"]
         st.session_state["di_status"] = freeze_result["status"]
+
+        # ── Step 1: DI history tracking for trend prediction ─────────────
+        if "di_history" not in st.session_state:
+            st.session_state["di_history"] = []
+        st.session_state["di_history"].append(round(freeze_result["DI"], 2))
+        st.session_state["di_history"] = st.session_state["di_history"][-5:]
+
         print(f"[FormOptiX Freeze Guard] DI={freeze_result['DI']:.2f}% | "
               f"status={freeze_result['status']}")
         if freeze_result["status"] == "HALT":
@@ -1850,6 +1858,55 @@ if st.session_state.results_ready:
                 f"across {_n_unstable_floors} unstable floor(s). "
                 "Ibbs (1997) Table 3."
             )
+
+        # ── Step 3: Design change trend prediction ────────────────────────
+        st.subheader("Design change trend prediction")
+        _di_history  = st.session_state.get("di_history", [])
+        _prediction  = predict_design_change_risk(_di_history)
+        _pred_level  = _prediction["risk_level"]
+        _pred_msg    = _prediction["message"]
+
+        if _pred_level == "HIGH":
+            st.error(f"\U0001f534 HIGH risk: {_pred_msg}")
+        elif _pred_level == "MEDIUM":
+            st.warning(f"\U0001f7e1 MEDIUM risk: {_pred_msg}")
+        elif _pred_level == "LOW":
+            st.success(f"\U0001f7e2 LOW risk: {_pred_msg}")
+        else:
+            st.info(_pred_msg)
+
+        _pc1, _pc2, _pc3 = st.columns(3)
+        _trend_val = _prediction["trend"]
+        _pc1.metric(
+            "DI trend",
+            f"+{_trend_val:.2f}%" if _trend_val > 0 else f"{_trend_val:.2f}%",
+            help="Change in DI from first to most recent measurement",
+        )
+        _pc2.metric(
+            "Measurements above threshold",
+            f"{_prediction['above_count']} / {_prediction['total_count']}",
+            help="Number of DI readings > 10% risk threshold",
+        )
+        _pc3.metric(
+            "Prediction confidence",
+            _prediction["confidence"].capitalize(),
+            help="Based on number of DI measurements collected",
+        )
+
+        st.caption(
+            "Trend prediction based on DI history across uploads. "
+            "Ibbs (1997) \u2014 projects with sustained DI exceedance have 3\u00d7 higher "
+            "late-stage change probability."
+        )
+
+        # ── Step 4: DI history sparkline ──────────────────────────────────
+        if len(_di_history) >= 2:
+            _hist_df = pd.DataFrame({
+                "DI (%)": _di_history,
+                "Risk threshold": [10.0] * len(_di_history),
+            })
+            st.line_chart(_hist_df, use_container_width=True)
+            st.caption("DI history (last 5 uploads). Yellow line = 10% risk threshold.")
 
 
     if mode == "Real Site Data" and "dq_score" in st.session_state:

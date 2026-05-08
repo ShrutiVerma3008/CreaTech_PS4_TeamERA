@@ -380,6 +380,108 @@ def get_procurement_recommendation(
     }
 
 
+def predict_design_change_risk(di_history: list) -> dict:
+    """
+    Predict design change probability from a trend of DI values.
+
+    This converts the freeze guard from a *diagnostic* tool (what is
+    happening now) into a *predictive* tool (what is about to happen),
+    satisfying PS4 predictive-planning requirements.
+
+    Academic basis
+    --------------
+    Ibbs, C.W. (1997). Quantitative impacts of project change.
+    Journal of Construction Engineering and Management, 123(3), 308-311.
+    → Projects whose DI stays above 10% for multiple consecutive
+      measurement periods have significantly higher late-stage change
+      probability. Sustained threshold breach, not a single spike, is
+      the key indicator.
+
+    Parameters
+    ----------
+    di_history : list of float
+        DI values in chronological order (most recent last). Length 1–5.
+        Populated by appending the DI from each user upload in the same
+        Streamlit session.
+
+    Returns
+    -------
+    dict with keys:
+        risk_level   : "HIGH" | "MEDIUM" | "LOW" | "INSUFFICIENT DATA"
+        confidence   : "high" (≥3 readings) | "moderate" (2) | "low" (≤1)
+        trend        : float — di_history[-1] - di_history[0] (or 0.0)
+        above_count  : int — number of readings > 10.0
+        total_count  : int — len(di_history)
+        message      : str — human-readable risk summary
+        citation     : str — academic source
+    """
+    citation = (
+        "Ibbs (1997) \u2014 sustained DI exceedance correlates with "
+        "late-stage change probability"
+    )
+
+    # ── Guard: empty or single-entry history ─────────────────────────────
+    if len(di_history) < 2:
+        return {
+            "risk_level":  "INSUFFICIENT DATA",
+            "confidence":  "low",
+            "trend":       0.0,
+            "above_count": sum(1 for v in di_history if v > 10.0),
+            "total_count": len(di_history),
+            "message":     (
+                "Upload more floor data to enable trend prediction. "
+                "A minimum of 2 DI measurements is required."
+            ),
+            "citation": citation,
+        }
+
+    # ── Core metrics ──────────────────────────────────────────────────────
+    trend               = round(di_history[-1] - di_history[0], 2)
+    above_threshold_cnt = sum(1 for v in di_history if v > 10.0)
+    n                   = len(di_history)
+
+    # ── Confidence ────────────────────────────────────────────────────────
+    if n >= 3:
+        confidence = "high"
+    elif n == 2:
+        confidence = "moderate"
+    else:
+        confidence = "low"
+
+    # ── Risk classification (Ibbs 1997 sustained-breach logic) ───────────
+    # HIGH requires BOTH conditions — a single spike is not predictive.
+    if above_threshold_cnt >= 2 and trend > 0:
+        risk_level = "HIGH"
+        message = (
+            f"Design change probability: HIGH. DI has exceeded the procurement "
+            f"risk threshold for {above_threshold_cnt} of {n} measurements "
+            f"and is trending upward (+{trend:.1f}%). "
+            "Recommend deferring procurement of unstable clusters."
+        )
+    elif above_threshold_cnt >= 1 or trend > 5:
+        risk_level = "MEDIUM"
+        message = (
+            "Design change probability: MEDIUM. Monitor closely. "
+            "Procurement of stable clusters may proceed."
+        )
+    else:
+        risk_level = "LOW"
+        message = (
+            "Design change probability: LOW. Design appears stable. "
+            "Full procurement recommended."
+        )
+
+    return {
+        "risk_level":  risk_level,
+        "confidence":  confidence,
+        "trend":       trend,
+        "above_count": above_threshold_cnt,
+        "total_count": n,
+        "message":     message,
+        "citation":    citation,
+    }
+
+
 # ============================================================
 # STEP 4 — Self-contained test runner
 # ============================================================
