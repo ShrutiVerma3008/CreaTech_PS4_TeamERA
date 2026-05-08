@@ -2151,9 +2151,17 @@ if st.session_state.results_ready:
             st.markdown("<br>", unsafe_allow_html=True)
 
             # 2b. Per-floor bar chart
-            _chart_df = _df_panel[["floor_id", "standard_pct"]].copy()
-            _chart_df = _chart_df.set_index("floor_id")
-            st.bar_chart(_chart_df, y="standard_pct", use_container_width=True)
+            st.dataframe(
+                _df_panel[["floor_id","standard_pct","custom_area_m2"]]
+                .sort_values("standard_pct")
+                .reset_index(drop=True)
+                .rename(columns={
+                    "floor_id":      "Floor",
+                    "standard_pct":  "Standard coverage (%)",
+                    "custom_area_m2":"Custom area (m²)"
+                }),
+                use_container_width=True,
+            )
             st.caption(
                 "Floors below 70% standard coverage are high-cost risk "
                 "(Peurifoy & Oberlender 2010 — standard panel reuse threshold)"
