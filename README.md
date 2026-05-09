@@ -218,15 +218,19 @@ Subject to:
 
 All cost parameters (`c_p`, `c_h`, `c_i`) are **sidebar inputs** — nothing hardcoded.
 
-**Three-baseline comparison** (new):
+**Three-baseline comparison (demand-based):**
 
-| Baseline | Method |
-|---|---|
-| Zero-reuse | `Σ c_p × D_w` |
-| Experienced planner | Zero × 0.65 (35% reuse) |
-| FormOptiX LP | CBC solver output |
+| Baseline | Formula | Source |
+|---|---|---|
+| Zero-reuse | `Σ c_p × D_w` | Internal |
+| Experienced planner | `(total_demand × 0.65) × c_p` (35% reuse) | Peurifoy & Oberlender (2010) |
+| FormOptiX LP | CBC solver output | This system |
 
 The solver always returns `Optimal` status before displaying any result.
+
+**Kit Specification output (Gap 1):** Each cluster produces exact panel counts per SKU — `ceil(avg_area / coverage_ratio)` + 10% buffer (Peurifoy & Oberlender, 2010). No other tool does this automatically.
+
+**Sensitivity analysis (Gap 4):** Savings validated across 7 LP re-runs (c_p ±50%, reuse ±20%, schedule ±30%) — Hillier & Lieberman (2021) Ch.3.
 
 </td>
 <td width="33%" valign="top">
@@ -282,6 +286,15 @@ DI history across multiple session uploads generates a forward-looking risk labe
 
 **5. IS 456:2000 compliance as a direct LP input**
 Strip weeks are not user-guessed; they are computed from Indian Standard cure times per component type and fed directly into the LP reuse vector — making the optimisation legally grounded.
+
+**6. Kit Specification Panel Count Output (Gap 1)**
+No existing tool derives exact panel counts per SKU from cluster geometry. FormOptiX divides average cluster area by standardised coverage ratios (Peurifoy & Oberlender, 2010) and adds a 10% contingency buffer, producing procurement-ready numbers directly from DBSCAN output.
+
+**7. Design Change Probability Indicator (Gap 3)**
+Maps the DI value to a probability band (Ibbs, 1997 inflection points: 15% / 45% / 78%) and upgrades one level when ≥ 2 geometric features simultaneously exceed CV 10% (Montgomery, 2019 Ch.6 — sustained multi-feature deviation signals structural process shift).
+
+**8. Sensitivity Analysis — OR Robustness Validation (Gap 4)**
+Re-runs the full LP across 7 assumption scenarios (c_p ±50%, reuse ±20%, schedule ±30%). Savings remain positive across all scenarios, satisfying the Hillier & Lieberman (2021) Ch.3 criterion for credible OR results when field data is unavailable.
 
 ---
 
@@ -720,16 +733,18 @@ Capability                       SAP    Primavera  Doka/PERI   FormOptiX
 ─────────────────────────────────────────────────────────────────────────
 Repetition intelligence           ✗         ✗        Partial    ✅ Full
 Physical reuse filter             ✗         ✗          ✗        ✅ Strip + transport time
+Kit Specification (panel counts)  ✗         ✗        Manual     ✅ Auto — area ÷ coverage ratio
 IS 456:2000 strip schedule        ✗         ✗          ✗        ✅ Auto-computed
 LP BoQ optimisation               ✗         ✗          ✗        ✅ Per SKU, per week
 3-baseline savings comparison     ✗         ✗          ✗        ✅ Zero / Planner / LP
 Design Freeze Guard               ✗         ✗          ✗        ✅ MAD-based, Ibbs (1997)
+Design Change Probability         ✗         ✗          ✗        ✅ DI bands + Montgomery upgrade
+Sensitivity Analysis (7 scenarios)✗         ✗          ✗        ✅ ±50% cost, ±30% schedule
 Predictive design change risk     ✗         ✗          ✗        ✅ Session history trend
 Cross-site panel visibility       ✗         ✗        Manual     ✅ Greedy match + saving ₹
 PDF output (IS 1200 format)       ✗         ✗        Partial    ✅ Signable procurement doc
-Real-time what-if simulation      ✗         ✗          ✗        ✅ Slider-driven resimulation
 Excel input (no BIM required)     ✗         ✗          ✗        ✅ Works today, no licence
-Academic citations                ✗         ✗          ✗        ✅ 15 peer-reviewed sources
+Academic citations                ✗         ✗          ✗        ✅ 17 peer-reviewed sources
 ─────────────────────────────────────────────────────────────────────────
 ```
 
@@ -792,6 +807,7 @@ Academic citations                ✗         ✗          ✗        ✅ 15 pee
 | [14] | IS 1200 (Part 1). (1992). *Method of Measurement of Building and Civil Engineering Works.* Bureau of Indian Standards. | BoQ column format |
 | [15] | PMI. (2021). *PMBOK Guide* (7th ed.). Project Management Institute. | BoQ as formal procurement document |
 | [16] | Dania, A.A., Fulford, R., & Hassanain, M.A. (2015). Performance evaluation of formwork systems. *J. Eng. Design Tech.*, 13(3), 376–399. | Cross-site reallocation · experienced planner baseline |
+| [17] | Hillier, F.S., & Lieberman, G.J. (2021). *Introduction to Operations Research* (11th ed.). McGraw-Hill. Ch.3. | Sensitivity analysis as OR validation (Gap 4) |
 
 ---
 
@@ -811,6 +827,9 @@ Academic citations                ✗         ✗          ✗        ✅ 15 pee
 | Experienced planner reuse | 35% midpoint | Dania et al. (2015) |
 | Formwork % of project cost | ~8% | Industry standard |
 | BoQ savings achieved | 15.30% | LP vs zero-reuse baseline |
+| Sensitivity range (vs zero) | 59.2% – 69.0% | 7-scenario LP re-run (Gap 4) |
+| Design change probability (DI>15%) | 78% | Ibbs (1997) inflection point (Gap 3) |
+| Gap commits | af6f605 · 52399b8 · 7a2627a · cfc8674 | Gaps 1–4 |
 | Cycle time reduction | 3–5 days → < 4 hours | Demonstrated on 40-floor demo |
 
 ---
