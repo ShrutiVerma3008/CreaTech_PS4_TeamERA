@@ -1736,6 +1736,9 @@ if run_btn:
     st.session_state["overall_reuse_rate"] = overall_reuse
 
     # ── Three-baseline savings comparison (Dania et al. 2015) ────────────
+    # Derive totals from lp_results here (before the results_ready block below)
+    baseline_total  = lp_results.get("baseline_total", lp_results.get("trad_total", 0))
+    optimized_total = lp_results.get("optimized_total", lp_results.get("opt_total", 0))
     _three_bl = compute_three_baselines(
         zero_baseline=float(baseline_total),
         optimized_total=float(optimized_total),
