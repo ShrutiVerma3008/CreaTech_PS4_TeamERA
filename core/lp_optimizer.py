@@ -487,3 +487,160 @@ def run_sku_optimizer(
         "opt_inv_w":  opt_inv_w,
         "opt_inv_s":  opt_inv_s,
     }
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SENSITIVITY ANALYSIS — Gap 4
+# ──────────────────────────────────────────────────────────────────────────────
+
+def compute_sensitivity_analysis(
+    df_schedule: pd.DataFrame,
+    c_p: float,
+    c_h: float,
+    c_i: float,
+) -> pd.DataFrame:
+    """
+    Sensitivity analysis: re-run the LP across 7 assumption scenarios and
+    report savings robustness.
+
+    Academic basis
+    --------------
+    Hillier, F.S., & Lieberman, G.J. (2021). Introduction to Operations
+    Research (11th ed.). McGraw-Hill. Chapter 3.
+        → Sensitivity analysis is the standard OR validation method when
+          field data is unavailable.  Savings are credible only if they hold
+          across ±50% cost-assumption variance.
+
+    Ibbs, C.W. (1997). Quantitative impacts of project change.
+    J. Construction Engineering & Management, 123(3), 308-311.
+        → Savings estimates must remain positive across realistic input
+          perturbations to be credible in a construction context.
+
+    Peurifoy, R.L., & Oberlender, G.D. (2010). Formwork for Concrete
+    Structures (4th ed.). McGraw-Hill. Chapter 7.
+        → Reuse rate range 30–40% used as the sensitivity bound for the
+          experienced planner baseline comparison.
+
+    Parameters
+    ----------
+    df_schedule : pd.DataFrame with columns [week, wall_panels_demand,
+                  slab_panels_demand, col_panels_demand]
+    c_p         : procurement cost per panel (₹)
+    c_h         : holding cost per panel per week (₹)
+    c_i         : idle cost per panel per week (₹)
+
+    Returns
+    -------
+    pd.DataFrame with columns:
+        scenario                 : str
+        optimised_cr             : float (₹ Crore, 2 dp) — NaN if LP non-optimal
+        zero_baseline_cr         : float (₹ Crore, 2 dp)
+        experienced_baseline_cr  : float (₹ Crore, 2 dp)
+        savings_vs_zero_pct      : float (%, 1 dp) — floored at 0
+        savings_vs_experienced_pct : float (%, 1 dp) — floored at 0
+    """
+    _COLS = [
+        "scenario",
+        "optimised_cr",
+        "zero_baseline_cr",
+        "experienced_baseline_cr",
+        "savings_vs_zero_pct",
+        "savings_vs_experienced_pct",
+    ]
+
+    def _scale_schedule(df: pd.DataFrame, factor: float) -> pd.DataFrame:
+        """Scale week_start / week_end columns by factor; round to int ≥ 1."""
+        df2 = df.copy()
+        for col in ["week", "week_start", "week_end"]:
+            if col in df2.columns:
+                df2[col] = (df2[col] * factor).round().astype(int).clip(lower=1)
+        return df2
+
+    def _make_synthetic_floors(df_s: pd.DataFrame) -> pd.DataFrame:
+        """
+        Build a minimal df_floors from the schedule so run_sku_optimizer
+        gets non-zero reuse vectors.
+        Each row = one 'floor' whose strip_week = this week + 2 (ACI 347 minimum).
+        Panel counts derived from demand columns.
+        """
+        rows = []
+        for _, r in df_s.iterrows():
+            w = int(r["week"])
+            rows.append({
+                "floor_id":    f"F{w:02d}",
+                "week_start":  w,
+                "week_end":    w + 1,
+                "strip_week":  w + 2,         # ACI 347: 2-week minimum cure
+                "wall_panels": int(r.get("wall_panels_demand", 0)),
+                "slab_panels": int(r.get("slab_panels_demand", 0)),
+                "col_panels":  int(r.get("col_panels_demand",  0)),
+            })
+        return pd.DataFrame(rows)
+
+    def _run_scenario(
+        df_s: pd.DataFrame,
+        cp: float,
+        ch: float,
+        ci: float,
+        reuse_rate: float = 0.35,
+    ) -> tuple:
+        """Returns (optimised_total, zero_baseline, experienced_cost) as floats."""
+        try:
+            df_floors_syn = _make_synthetic_floors(df_s)
+            res = run_sku_optimizer(df_s, df_floors_syn, cp, ch, ci)
+            if res.get("status", "") not in ("Optimal", "Heuristic (PuLP not installed)"):
+                opt = float("nan")
+            else:
+                opt = float(res["optimized_total"])
+        except Exception:
+            opt = float("nan")
+
+        zero = float(compute_baseline(df_s, cp))
+        exp  = float(
+            compute_experienced_planner_baseline(df_s, cp, reuse_rate=reuse_rate)["cost"]
+        )
+        return opt, zero, exp
+
+    def _pct(num: float, den: float) -> float:
+        if den <= 0 or den != den:   # den is NaN
+            return float("nan")
+        return max(0.0, round((num / den) * 100, 1))
+
+    scenarios = [
+        # (label,               df_scaler, cp_mult, reuse_rate)
+        ("Base Case",           1.00,      1.00,    0.35),
+        ("c_p +50%",            1.00,      1.50,    0.35),
+        ("c_p -50%",            1.00,      0.50,    0.35),
+        ("Reuse rate +20%",     1.00,      1.00,    0.42),   # top of Peurifoy range
+        ("Reuse rate -20%",     1.00,      1.00,    0.28),   # below Peurifoy range
+        ("Schedule -30%",       0.70,      1.00,    0.35),
+        ("Schedule +30%",       1.30,      1.00,    0.35),
+    ]
+
+    rows = []
+    for label, sched_factor, cp_mult, reuse_rate in scenarios:
+        df_s  = _scale_schedule(df_schedule, sched_factor)
+        cp_s  = c_p * cp_mult
+        opt, zero, exp = _run_scenario(df_s, cp_s, c_h, c_i, reuse_rate)
+
+        opt_cr  = round(opt  / 1e7, 2) if opt == opt else float("nan")   # nan check
+        zero_cr = round(zero / 1e7, 2)
+        exp_cr  = round(exp  / 1e7, 2)
+
+        if opt == opt:  # not NaN
+            svz = _pct(zero - opt, zero)
+            sve = _pct(exp  - opt, exp)
+        else:
+            svz = float("nan")
+            sve = float("nan")
+
+        rows.append({
+            "scenario":                   label,
+            "optimised_cr":               opt_cr,
+            "zero_baseline_cr":           zero_cr,
+            "experienced_baseline_cr":    exp_cr,
+            "savings_vs_zero_pct":        svz,
+            "savings_vs_experienced_pct": sve,
+        })
+
+    return pd.DataFrame(rows, columns=_COLS)

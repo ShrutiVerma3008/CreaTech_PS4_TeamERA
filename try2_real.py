@@ -32,6 +32,7 @@ try:
         compute_baseline,
         compute_three_baselines,
         compute_experienced_planner_baseline,
+        compute_sensitivity_analysis,
     )
     LP_MODULE_AVAILABLE = True
 except ImportError:
@@ -45,6 +46,13 @@ except ImportError:
                 "panels_purchased": total - reused,
                 "cost": float((total - reused) * c_p),
                 "reuse_rate": reuse_rate}
+    def compute_sensitivity_analysis(df, c_p, c_h, c_i):  # noqa: E301
+        """Fallback stub — returns empty DataFrame with correct columns."""
+        return pd.DataFrame(columns=[
+            "scenario", "optimised_cr", "zero_baseline_cr",
+            "experienced_baseline_cr", "savings_vs_zero_pct",
+            "savings_vs_experienced_pct"
+        ])
 # THEORETICAL BASIS & CITATIONS
 # ============================================================
 # Every algorithm choice in FormOptiX is grounded in published
@@ -2617,7 +2625,51 @@ if st.session_state.results_ready:
             "Source: Peurifoy & Oberlender (2010) Ch.7; Dania et al. (2015) J.Eng.Design Tech."
         )
 
-        # Savings vs Experienced Planner warning
+        # ── Gap 4: Sensitivity Analysis expander ──────────────────────────
+        # Hillier & Lieberman (2021): OR validation when field data unavailable.
+        # Runs 7 LP scenarios: c_p ±50%, reuse rate ±20%, schedule ±30%.
+        if df_schedule is not None and LP_MODULE_AVAILABLE:
+            with st.expander("📊 Sensitivity Analysis — Savings Robustness", expanded=False):
+                st.caption(
+                    "Standard OR validation methodology (Hillier & Lieberman 2021 Ch.3). "
+                    "Savings are credible if they hold across ±50% cost assumptions "
+                    "and ±30% schedule variation."
+                )
+                with st.spinner("Running 7 LP scenarios…"):
+                    _sens_df = compute_sensitivity_analysis(
+                        df_schedule, float(c_p), float(c_h), float(c_i)
+                    )
+                if _sens_df.empty:
+                    st.info("Sensitivity analysis unavailable — LP module not loaded.")
+                else:
+                    _pct_cols = ["savings_vs_zero_pct", "savings_vs_experienced_pct"]
+                    try:
+                        _styled = (
+                            _sens_df.style
+                            .highlight_min(subset=_pct_cols, color="#FFCDD2")
+                            .highlight_max(subset=_pct_cols, color="#C8E6C9")
+                            .format({
+                                "optimised_cr":             "{:.2f}",
+                                "zero_baseline_cr":         "{:.2f}",
+                                "experienced_baseline_cr":  "{:.2f}",
+                                "savings_vs_zero_pct":      "{:.1f}%",
+                                "savings_vs_experienced_pct": "{:.1f}%",
+                            }, na_rep="N/A")
+                        )
+                        st.dataframe(_styled, use_container_width=True)
+                    except Exception:
+                        st.dataframe(_sens_df, use_container_width=True)
+
+                    _svz = _sens_df["savings_vs_zero_pct"].dropna()
+                    _sve = _sens_df["savings_vs_experienced_pct"].dropna()
+                    if len(_svz) > 0 and len(_sve) > 0:
+                        st.caption(
+                            f"Savings range: {_svz.min():.1f}% – {_svz.max():.1f}% vs zero baseline | "
+                            f"{_sve.min():.1f}% – {_sve.max():.1f}% vs experienced planner. "
+                            "Source: Ibbs (1997), Peurifoy & Oberlender (2010)."
+                        )
+
+        # ── Savings vs Experienced Planner warning ──────────────────────
         if _savings_vs_exp <= 0 and not _demo_warning:
             st.warning(
                 "⚠️ FormOptiX did not beat the experienced planner baseline on this dataset. "
