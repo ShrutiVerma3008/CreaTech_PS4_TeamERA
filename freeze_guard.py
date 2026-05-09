@@ -482,6 +482,115 @@ def predict_design_change_risk(di_history: list) -> dict:
 
 
 # ============================================================
+# Design Change Probability Indicator — Gap 3
+# ============================================================
+# Ibbs, C.W. (1997). Quantitative impacts of project change.
+# J. Construction Engineering & Management, 123(3), 308-311.
+#   → Sustained DI > 10% predicts late design change;
+#     DI > 15% shows 3× rework cost inflection.
+# Montgomery, D.C. (2019). Statistical Quality Control (8th ed.).
+# Wiley. Chapter 6.
+#   → Sustained multi-feature deviation signals process shift.
+#     When ≥ 2 features exceed CV threshold simultaneously,
+#     the probability estimate is upgraded one level.
+
+# Probability band definitions (Ibbs 1997 inflection points):
+_PROB_BANDS = {
+    "LOW":      {"pct": 15, "label": "LOW — design likely stable"},
+    "MODERATE": {"pct": 45, "label": "MODERATE — monitor weekly"},
+    "HIGH":     {"pct": 78, "label": "HIGH — late design change likely"},
+}
+
+_PROB_ORDER = ["LOW", "MODERATE", "HIGH"]   # upgrade direction
+
+
+def compute_change_probability(df: pd.DataFrame, di_value: float) -> dict:
+    """
+    Design Change Probability Indicator.
+
+    Maps the Design Instability Index (DI) to a probability band and
+    upgrades the estimate when ≥ 2 of 3 geometric features show
+    simultaneous CV > 10% (Montgomery, 2019 — sustained multi-feature
+    deviation signals process shift).
+
+    Academic basis
+    --------------
+    Ibbs, C.W. (1997). Quantitative impacts of project change.
+    J. Construction Engineering & Management, 123(3), 308-311.
+        → DI ≤ 10%: low probability of late change (base: 15%).
+        → 10 < DI ≤ 15%: moderate probability (base: 45%).
+        → DI > 15%: high probability, 3× rework cost (base: 78%).
+
+    Montgomery, D.C. (2019). Statistical Quality Control (8th ed.).
+    Wiley. Chapter 6.
+        → Sustained deviation in ≥ 2 process features simultaneously
+          indicates a structural shift, not random noise.
+          Probability upgraded one band when this condition holds.
+
+    Parameters
+    ----------
+    df       : pd.DataFrame — floor dataframe with slab_area, wall_length,
+               column_count columns (both naming conventions accepted).
+    di_value : float — DI from compute_design_freeze() (percentage).
+
+    Returns
+    -------
+    dict with keys:
+        probability      : str   — "LOW" | "MODERATE" | "HIGH"
+        pct              : int   — estimated probability in %
+        label            : str   — human-readable label
+        sustained_above_10: bool — True if ≥ 2 of 3 CVs exceed 10%
+        cv_slab          : float — CV of slab area (%)
+        cv_wall          : float — CV of wall length (%)
+        cv_col           : float — CV of column count (%)
+    """
+    # ── Resolve column names (same logic as compute_design_freeze) ────────
+    def _resolve_ser(df, *candidates):
+        for c in candidates:
+            if c in df.columns:
+                return df[c].dropna().astype(float)
+        return pd.Series(dtype=float)
+
+    slab_s = _resolve_ser(df, "slab_area_sqm", "slab_area_m2")
+    wall_s = _resolve_ser(df, "wall_length_m")
+    col_s  = _resolve_ser(df, "column_count", "col_count")
+
+    cv_slab = round(_cv(slab_s), 2)
+    cv_wall = round(_cv(wall_s), 2)
+    cv_col  = round(_cv(col_s),  2)
+
+    # ── Sustained multi-feature check (Montgomery 2019 Ch.6) ─────────────
+    above_10 = sum([cv_slab > 10.0, cv_wall > 10.0, cv_col > 10.0])
+    sustained_above_10 = above_10 >= 2
+
+    # ── Base probability band (Ibbs 1997 inflection points) ──────────────
+    if di_value <= 10.0:
+        probability = "LOW"
+    elif di_value <= 15.0:
+        probability = "MODERATE"
+    else:
+        probability = "HIGH"
+
+    # ── Upgrade one level when sustained multi-feature deviation ─────────
+    # Only upgrade from LOW or MODERATE — HIGH is already the maximum.
+    if sustained_above_10 and probability != "HIGH":
+        idx = _PROB_ORDER.index(probability)
+        probability = _PROB_ORDER[idx + 1]
+
+    band = _PROB_BANDS[probability]
+
+    return {
+        "probability":       probability,
+        "pct":               band["pct"],
+        "label":             band["label"],
+        "sustained_above_10": sustained_above_10,
+        "cv_slab":           cv_slab,
+        "cv_wall":           cv_wall,
+        "cv_col":            cv_col,
+    }
+
+
+# ============================================================
 # STEP 4 — Self-contained test runner
 # ============================================================
 

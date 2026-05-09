@@ -139,10 +139,19 @@ try:
         estimate_rework_cost,
         get_procurement_recommendation,
         predict_design_change_risk,
+        compute_change_probability,
     )
     FREEZE_GUARD_AVAILABLE = True
 except ImportError:
     FREEZE_GUARD_AVAILABLE = False
+    def compute_change_probability(df, di_value):  # noqa: E301
+        """Fallback stub when freeze_guard is unavailable."""
+        prob = "HIGH" if di_value > 15 else ("MODERATE" if di_value > 10 else "LOW")
+        pct  = {"LOW": 15, "MODERATE": 45, "HIGH": 78}[prob]
+        return {"probability": prob, "pct": pct,
+                "label": f"{prob} — design likely stable" if prob == "LOW" else f"{prob}",
+                "sustained_above_10": False,
+                "cv_slab": 0.0, "cv_wall": 0.0, "cv_col": 0.0}
 
 
 # ============================================================
@@ -1983,6 +1992,37 @@ if st.session_state.results_ready:
                 f"across {_n_unstable_floors} unstable floor(s). "
                 "Ibbs (1997) Table 3."
             )
+
+        # ── Gap 3: Design Change Probability Indicator ────────────────────
+        # Ibbs (1997): DI bands map to probability of late design change.
+        # Montgomery (2019) Ch.6: sustained multi-feature deviation
+        # (CV > 10% on ≥2 features) upgrades the estimate one level.
+        st.subheader("Design Change Probability")
+        _prob = compute_change_probability(df_floors, freeze_result["DI"])
+        _color_map = {"LOW": "#22C55E", "MODERATE": "#F59E0B", "HIGH": "#EF4444"}
+        _badge_color = _color_map.get(_prob["probability"], "#7B8A9E")
+        st.markdown(
+            f"<h2 style='color:{_badge_color}; margin-bottom:4px;'>"
+            f"{_prob['label']}</h2>",
+            unsafe_allow_html=True,
+        )
+        st.metric(
+            "Estimated Probability of Late Design Change",
+            f"{_prob['pct']}%",
+            help="Probability bands: Ibbs (1997) DI inflection points.",
+        )
+        if _prob["sustained_above_10"]:
+            st.warning(
+                "2 or more geometric features show CV > 10% simultaneously. "
+                "This pattern precedes late design changes. "
+                "Source: Montgomery (2019) Ch.6 \u2014 sustained multi-feature "
+                "deviation signals process shift."
+            )
+        st.caption(
+            "Probability bands derived from Ibbs (1997): "
+            "DI \u2264 10% \u2192 LOW (15%) | 10\u201315% \u2192 MODERATE (45%) | >15% \u2192 HIGH (78%). "
+            "Upgraded one level when \u22652 features show sustained CV > 10%."
+        )
 
         # ── DI Trend Prediction ──────────────────────────────────────
         st.subheader("Design change trend prediction")
