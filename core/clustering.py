@@ -154,6 +154,109 @@ def generate_kit_families(df: pd.DataFrame, cluster_labels: np.ndarray) -> list:
     return kit_families
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# KIT SPECIFICATION — Panel Counts per Kit
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Default SKU coverage ratios (m² of formwork area covered per panel unit).
+# Based on Peurifoy & Oberlender (2010), Ch.7 — standard European panel sizes:
+#   ALU-600  : 0.6 m × 1.2 m = 0.72 m² effective coverage per wall/slab unit
+#   ALU-450  : 0.45 m × 0.9 m = 0.405 m² effective coverage (column/corner)
+#   H20-beam : used for slab bearing; 1 beam covers ~1.5 m² of slab soffit
+DEFAULT_SKU_COVERAGE = {
+    "ALU-600":  0.72,   # m² per wall/slab panel   — Peurifoy & Oberlender (2010) Ch.7
+    "ALU-450":  0.405,  # m² per column panel       — Peurifoy & Oberlender (2010) Ch.7
+    "H20-beam": 1.50,   # m² per slab soffit beam   — Peurifoy & Oberlender (2010) Ch.7
+}
+
+
+def generate_kit_specification(
+    kit_families: list,
+    df: pd.DataFrame,
+    sku_coverage_ratios: dict | None = None,
+) -> pd.DataFrame:
+    """
+    Derive a panel-count specification per Formwork Kit Family and SKU.
+
+    Academic basis
+    --------------
+    Peurifoy, R.L., & Oberlender, G.D. (2010). Formwork for Concrete
+    Structures (4th ed.). McGraw-Hill. Chapter 7.
+        → Coverage ratios: panel area ÷ floor area gives panel count.
+        → 10% buffer is a standard site contingency for damage/miscounting.
+
+    Parameters
+    ----------
+    kit_families       : list of dicts returned by generate_kit_families().
+    df                 : the validated floor DataFrame (must contain the area
+                         column — slab_area_sqm or slab_area_m2).
+    sku_coverage_ratios: dict of {sku_label: m2_per_panel}.  Defaults to
+                         DEFAULT_SKU_COVERAGE if None or empty.
+
+    Returns
+    -------
+    pd.DataFrame with columns:
+        kit_id          : str   — e.g. "Kit A", "Custom Kit"
+        sku             : str   — e.g. "ALU-600"
+        avg_area_m2     : float — mean slab area of floors in this kit
+        panel_count     : int   — ceil(avg_area_m2 / coverage_ratio)
+        buffer_panels   : int   — ceil(panel_count × 0.10)
+        total_panels    : int   — panel_count + buffer_panels
+
+    Returns an empty DataFrame (with the correct columns) when kit_families
+    is empty or no valid area column is found.
+    """
+    _COLS = ["kit_id", "sku", "avg_area_m2", "panel_count", "buffer_panels", "total_panels"]
+
+    if not kit_families:
+        return pd.DataFrame(columns=_COLS)
+
+    ratios = dict(DEFAULT_SKU_COVERAGE)
+    if sku_coverage_ratios:
+        ratios.update(sku_coverage_ratios)
+
+    area_col = "slab_area_sqm" if "slab_area_sqm" in df.columns else "slab_area_m2"
+    if area_col not in df.columns:
+        return pd.DataFrame(columns=_COLS)
+
+    rows: list[dict] = []
+
+    for kit in kit_families:
+        kit_id    = kit["kit_id"]
+        floor_ids = kit["floor_ids"]
+
+        # Mean area for the floors belonging to this kit
+        # Use the already-computed avg_slab_area if available (avoids
+        # re-filtering df for every SKU — single pass per kit).
+        avg_area = kit.get("avg_slab_area")
+        if avg_area is None or avg_area == 0:
+            subset   = df[df["floor_id"].astype(str).isin([str(f) for f in floor_ids])]
+            avg_area = float(subset[area_col].mean()) if len(subset) > 0 else 0.0
+
+        avg_area = round(float(avg_area), 2)
+
+        for sku, cov in ratios.items():
+            if cov <= 0:
+                continue
+            panel_count   = int(np.ceil(avg_area / cov))
+            buffer_panels = int(np.ceil(panel_count * 0.10))
+            total_panels  = panel_count + buffer_panels
+
+            rows.append({
+                "kit_id":        kit_id,
+                "sku":           sku,
+                "avg_area_m2":   avg_area,
+                "panel_count":   panel_count,
+                "buffer_panels": buffer_panels,
+                "total_panels":  total_panels,
+            })
+
+    if not rows:
+        return pd.DataFrame(columns=_COLS)
+
+    return pd.DataFrame(rows, columns=_COLS)
+
+
 def compute_repetition_score(
     df_floors: pd.DataFrame,
     transport_weeks: int = 1,

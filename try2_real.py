@@ -17,9 +17,13 @@ from utils.report_generator import generate_boq_pdf
 # ── Physical reuse clustering (core module)
 try:
     from core.clustering import compute_repetition_score as _core_compute_repetition_score
+    from core.clustering import generate_kit_specification
     CLUSTERING_MODULE_AVAILABLE = True
 except ImportError:
     CLUSTERING_MODULE_AVAILABLE = False
+    def generate_kit_specification(*a, **kw):  # noqa: E301
+        import pandas as _pd
+        return _pd.DataFrame(columns=["kit_id","sku","avg_area_m2","panel_count","buffer_panels","total_panels"])
 
 # ── SKU-level LP optimizer (core module)
 try:
@@ -2146,6 +2150,67 @@ if st.session_state.results_ready:
             )
         else:
             st.info("No kit families found.")
+
+        # ── Kit Specification — Panel Counts per Kit ──────────────────────
+        # Gap 1 fix: generate_kit_specification derives panel counts from
+        # avg_slab_area ÷ SKU coverage ratio (Peurifoy & Oberlender, 2010 Ch.7).
+        # 10% buffer per panel class = standard site contingency.
+        if kit_families:
+            with st.expander("📐 Kit Specification — Panel Counts", expanded=False):
+                st.caption(
+                    "Panel counts derived from avg. slab area ÷ SKU coverage ratio. "
+                    "Buffer = 10% of panel_count, rounded up. "
+                    "Source: Peurifoy & Oberlender (2010) Ch.7."
+                )
+
+                # Determine which floor dataframe to use
+                _df_for_spec = st.session_state.get("df_floors_is456", None)
+                if _df_for_spec is None:
+                    _df_for_spec = st.session_state.get("df_floors",
+                        pd.DataFrame(columns=["floor_id", "slab_area_sqm"])
+                    )
+
+                _kit_spec_df = generate_kit_specification(
+                    kit_families=kit_families,
+                    df=_df_for_spec,
+                    sku_coverage_ratios=None,   # uses DEFAULT_SKU_COVERAGE
+                )
+
+                if _kit_spec_df.empty:
+                    st.info("Kit specification not available — floor area data missing.")
+                else:
+                    _spec_kits = _kit_spec_df["kit_id"].unique().tolist()
+                    for _kid in _spec_kits:
+                        _sub = _kit_spec_df[_kit_spec_df["kit_id"] == _kid].copy()
+                        _sub = _sub.reset_index(drop=True)
+
+                        # Header row per kit
+                        _kit_meta = next(
+                            (k for k in kit_families if k["kit_id"] == _kid), {}
+                        )
+                        _rp = _kit_meta.get("reuse_potential", "")
+                        _fc = _kit_meta.get("floor_count", 0)
+                        _area = _sub["avg_area_m2"].iloc[0] if len(_sub) > 0 else 0
+
+                        st.markdown(
+                            f"**{_kid}** &nbsp;·&nbsp; {_fc} floors &nbsp;·&nbsp; "
+                            f"Avg. slab area: **{_area:.1f} m²** &nbsp;·&nbsp; "
+                            f"Reuse potential: **{_rp}**"
+                        )
+
+                        _display = _sub[["sku", "panel_count", "buffer_panels", "total_panels"]].rename(columns={
+                            "sku":           "SKU",
+                            "panel_count":   "Base Panels",
+                            "buffer_panels": "Buffer (10%)",
+                            "total_panels":  "Total Panels",
+                        })
+
+                        st.dataframe(
+                            _display,
+                            use_container_width=True,
+                            hide_index=True,
+                        )
+                        st.markdown("---")
 
         # ── Panel Reuse Intelligence ──────────────────────────────────────
         # Step 6: Overall reuse rate validated against Peurifoy & Oberlender
