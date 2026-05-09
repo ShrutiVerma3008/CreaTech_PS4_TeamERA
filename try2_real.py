@@ -204,213 +204,110 @@ INPUT_BORDER     = "#1E2D45"
 
 st.markdown(f'''
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
 
-  /* ── Base ── */
-  html, body, [class*="css"] {{
-    font-family: 'Space Grotesk', sans-serif;
-    background-color: #0A0E1A;
-    color: #E8EDF5;
-  }}
-  .stApp {{ background: {BG}; }}
+  html, body, [class*="css"] {{ font-family: 'Inter', sans-serif; background-color: #070B14; color: #E8EDF5; }}
+  .stApp {{ background: linear-gradient(160deg, #070B14 0%, #0C1220 50%, #070B14 100%); min-height: 100vh; }}
 
-  /* ── Sidebar ── */
-  [data-testid="stSidebar"] {{
-    background: linear-gradient(180deg, {BG_SIDEBAR_START} 0%, {BG_SIDEBAR_END} 100%);
-    border-right: 1px solid {BORDER};
-  }}
-  [data-testid="stSidebar"] .stMarkdown h1,
-  [data-testid="stSidebar"] .stMarkdown h2,
-  [data-testid="stSidebar"] .stMarkdown h3 {{
-    color: #E8611A;
-  }}
+  /* Sidebar */
+  [data-testid="stSidebar"] {{ background: linear-gradient(180deg, #0C1220 0%, #070B14 100%); border-right: 1px solid rgba(232,97,26,0.15); }}
+  [data-testid="stSidebar"] .stMarkdown h1, [data-testid="stSidebar"] .stMarkdown h2, [data-testid="stSidebar"] .stMarkdown h3 {{ color: #E8611A; font-weight: 700; }}
 
-  /* ── Metric cards ── */
-  .metric-card {{
-    background: linear-gradient(135deg, {CARD_START} 0%, {CARD_END} 100%);
-    border: 1px solid #1E2D45;
-    border-radius: 12px;
-    padding: 20px 24px;
-    margin: 6px 0;
-    transition: border-color 0.2s;
-  }}
-  .metric-card:hover {{ border-color: #E8611A; }}
-  .metric-value {{
-    font-size: 2.2rem;
-    font-weight: 700;
-    color: #E8611A;
-    font-family: 'JetBrains Mono', monospace;
-    line-height: 1.1;
-  }}
-  .metric-label {{
-    font-size: 0.78rem;
-    color: #7B8A9E;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-top: 4px;
-  }}
-  .metric-delta-pos {{ color: #22C55E; font-size: 0.85rem; font-weight: 600; }}
-  .metric-delta-neg {{ color: #EF4444; font-size: 0.85rem; font-weight: 600; }}
+  /* Tabs */
+  .stTabs [data-baseweb="tab-list"] {{ background: rgba(17,24,39,0.6); border-radius: 12px; padding: 4px; gap: 2px; border: 1px solid rgba(30,45,69,0.8); }}
+  .stTabs [data-baseweb="tab"] {{ color: #7B8A9E; border-radius: 8px; padding: 8px 18px; font-weight: 500; font-size: 0.88rem; transition: all 0.2s; border: none; }}
+  .stTabs [aria-selected="true"] {{ background: linear-gradient(135deg, #E8611A, #F59E0B) !important; color: white !important; font-weight: 700 !important; box-shadow: 0 2px 12px rgba(232,97,26,0.35); }}
 
-  /* ── Section headers ── */
-  .section-header {{
-    background: linear-gradient(90deg, {ORANGE} 0%, transparent 100%);
-    padding: 10px 20px;
-    border-radius: 6px;
-    margin: 24px 0 16px 0;
-    font-size: 1.05rem;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    color: #E8EDF5 !important;
-  }}
+  /* Metrics */
+  div[data-testid="stMetric"] {{ background: linear-gradient(135deg, #111827 0%, #1A2235 100%); border: 1px solid #1E2D45; border-radius: 14px; padding: 18px 20px; transition: all 0.2s; }}
+  div[data-testid="stMetric"]:hover {{ border-color: rgba(232,97,26,0.5); transform: translateY(-1px); }}
+  div[data-testid="stMetric"] label {{ color: #7B8A9E !important; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 1px; }}
+  div[data-testid="stMetric"] [data-testid="stMetricValue"] {{ color: #E8611A !important; font-family: 'JetBrains Mono', monospace; font-size: 1.8rem; font-weight: 700; }}
 
-  /* ── Alert / callout boxes ── */
-  .callout-orange {{
-    background: rgba(232, 97, 26, 0.12);
-    border-left: 4px solid {ORANGE};
-    border-radius: 0 8px 8px 0;
-    padding: 14px 18px;
-    margin: 12px 0;
-  }}
-  .callout-green {{
-    background: rgba(63, 185, 80, 0.10);
-    border-left: 4px solid {GREEN};
-    border-radius: 0 8px 8px 0;
-    padding: 14px 18px;
-    margin: 12px 0;
-  }}
-  .callout-red {{
-    background: rgba(248, 81, 73, 0.10);
-    border-left: 4px solid {RED};
-    border-radius: 0 8px 8px 0;
-    padding: 14px 18px;
-    margin: 12px 0;
-  }}
-  .callout-teal {{
-    background: rgba(13, 148, 136, 0.10);
-    border-left: 4px solid {TEAL};
-    border-radius: 0 8px 8px 0;
-    padding: 14px 18px;
-    margin: 12px 0;
-  }}
+  /* Buttons */
+  .stButton > button {{ background: linear-gradient(135deg, #E8611A, #F59E0B); color: white; border: none; border-radius: 10px; font-weight: 700; font-size: 0.9rem; padding: 12px 28px; transition: all 0.2s; box-shadow: 0 4px 15px rgba(232,97,26,0.3); }}
+  .stButton > button:hover {{ opacity: 0.9; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(232,97,26,0.4); }}
 
-  /* ── Title hero ── */
-  .hero-title {{
-    font-size: 3rem;
-    font-weight: 700;
-    background: linear-gradient(135deg, {ORANGE} 0%, {AMBER} 60%, {TEXT} 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    letter-spacing: -1px;
-    line-height: 1.05;
-  }}
-  .hero-sub {{
-    color: #7B8A9E;
-    font-size: 1rem;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    margin-top: 6px;
-  }}
-  .hero-tag {{
-    display: inline-block;
-    background: rgba(232, 97, 26, 0.15);
-    border: 1px solid #E8611A;
-    color: #E8611A;
-    padding: 3px 12px;
-    border-radius: 20px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 1px;
-    margin-right: 8px;
-    margin-top: 12px;
-  }}
+  /* Inputs */
+  .stSelectbox > div > div {{ background: #111827; border: 1px solid #1E2D45; border-radius: 8px; }}
+  .stNumberInput > div > div > input, .stTextInput > div > div > input {{ background: #111827; border: 1px solid #1E2D45; border-radius: 8px; color: #E8EDF5; padding: 8px 12px; }}
+  .stNumberInput > div > div > input:focus, .stTextInput > div > div > input:focus {{ border-color: #E8611A; box-shadow: 0 0 0 2px rgba(232,97,26,0.2); }}
+  .stSlider > div > div > div > div {{ background: #E8611A !important; }}
 
-  /* ── Table styling ── */
-  .custom-table {{
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.88rem;
-    margin: 12px 0;
-  }}
-  .custom-table th {{
-    background: {TABLE_HEADER_BG};
-    color: #E8611A;
-    padding: 10px 14px;
-    text-align: left;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    border-bottom: 2px solid {ORANGE};
-  }}
-  .custom-table td {{
-    padding: 9px 14px;
-    border-bottom: 1px solid {BORDER};
-    color: #E8EDF5;
-  }}
-  .custom-table tr:nth-child(even) td {{ background: {TABLE_ROW_EVEN}; }}
-  .custom-table tr:hover td {{ background: {TABLE_ROW_HOVER}; }}
+  /* Cards */
+  .metric-card {{ background: linear-gradient(135deg, #111827 0%, #1A2235 100%); border: 1px solid #1E2D45; border-radius: 14px; padding: 22px 26px; margin: 6px 0; transition: all 0.25s; }}
+  .metric-card:hover {{ border-color: rgba(232,97,26,0.4); box-shadow: 0 4px 24px rgba(232,97,26,0.1); }}
+  .metric-value {{ font-size: 2.2rem; font-weight: 700; color: #E8611A; font-family: 'JetBrains Mono', monospace; line-height: 1.1; }}
+  .metric-label {{ font-size: 0.76rem; color: #7B8A9E; text-transform: uppercase; letter-spacing: 1.2px; margin-top: 6px; }}
+  .metric-delta-pos {{ color: #22C55E; font-size: 0.83rem; font-weight: 600; }}
+  .metric-delta-neg {{ color: #EF4444; font-size: 0.83rem; font-weight: 600; }}
+
+  /* Section headers */
+  .section-header {{ background: linear-gradient(90deg, rgba(232,97,26,0.12) 0%, transparent 100%); border-left: 3px solid #E8611A; padding: 10px 18px; border-radius: 0 8px 8px 0; margin: 28px 0 16px 0; font-size: 0.82rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #E8EDF5 !important; }}
+
+  /* Callouts */
+  .callout-orange {{ background: rgba(232,97,26,0.07); border-left: 3px solid #E8611A; border-radius: 0 10px 10px 0; padding: 16px 20px; margin: 14px 0; }}
+  .callout-green {{ background: rgba(34,197,94,0.07); border-left: 3px solid #22C55E; border-radius: 0 10px 10px 0; padding: 16px 20px; margin: 14px 0; }}
+  .callout-red {{ background: rgba(239,68,68,0.07); border-left: 3px solid #EF4444; border-radius: 0 10px 10px 0; padding: 16px 20px; margin: 14px 0; }}
+  .callout-teal {{ background: rgba(20,184,166,0.07); border-left: 3px solid #14B8A6; border-radius: 0 10px 10px 0; padding: 16px 20px; margin: 14px 0; }}
+
+  /* Hero */
+  .hero-title {{ font-size: 3rem; font-weight: 800; background: linear-gradient(135deg, #E8611A 0%, #F59E0B 50%, #E8EDF5 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: -1.5px; line-height: 1.0; }}
+  .hero-sub {{ color: #7B8A9E; font-size: 0.9rem; letter-spacing: 2.5px; text-transform: uppercase; margin-top: 8px; font-weight: 500; }}
+  .hero-tag {{ display: inline-block; background: rgba(232,97,26,0.12); border: 1px solid rgba(232,97,26,0.45); color: #E8611A; padding: 4px 14px; border-radius: 20px; font-size: 0.72rem; font-weight: 600; letter-spacing: 1px; margin: 10px 6px 0 0; }}
+
+  /* Tables */
+  .custom-table {{ width: 100%; border-collapse: collapse; font-size: 0.87rem; margin: 14px 0; }}
+  .custom-table th {{ background: #1A2235; color: #E8611A; padding: 11px 16px; text-align: left; font-weight: 600; letter-spacing: 0.5px; border-bottom: 1px solid rgba(232,97,26,0.35); font-size: 0.78rem; text-transform: uppercase; }}
+  .custom-table td {{ padding: 10px 16px; border-bottom: 1px solid rgba(30,45,69,0.5); color: #E8EDF5; }}
+  .custom-table tr:nth-child(even) td {{ background: rgba(17,24,39,0.4); }}
+  .custom-table tr:hover td {{ background: rgba(232,97,26,0.05); }}
   .td-green {{ color: #22C55E !important; font-weight: 600; }}
   .td-orange {{ color: #E8611A !important; font-weight: 700; }}
 
-  /* ── Plotly chart container ── */
-  .chart-container {{
-    background: {CARD_START};
-    border: 1px solid #1E2D45;
-    border-radius: 12px;
-    padding: 4px;
-    margin: 8px 0;
-  }}
+  /* Charts */
+  .chart-container {{ background: #111827; border: 1px solid #1E2D45; border-radius: 14px; padding: 6px; margin: 10px 0; }}
 
-  /* ── Phase badges ── */
-  .phase-badge {{
-    display: inline-block;
-    padding: 4px 14px;
-    border-radius: 20px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    margin: 3px 2px;
-  }}
-  .phase-0 {{ background: rgba(13,148,136,0.2); color: #14B8A6; border: 1px solid #14B8A6; }}
-  .phase-1 {{ background: rgba(232,97,26,0.2); color: #E8611A; border: 1px solid #E8611A; }}
-  .phase-2 {{ background: rgba(26,43,74,0.4); color: #3B82F6; border: 1px solid #3B82F6; }}
-  .phase-3 {{ background: rgba(245,166,35,0.2); color: #F59E0B; border: 1px solid #F59E0B; }}
+  /* Expanders */
+  .streamlit-expanderHeader {{ background: rgba(17,24,39,0.8); border-radius: 10px; font-weight: 600; color: #E8EDF5; }}
 
-  /* ── Divider ── */
-  .orange-divider {{
-    height: 2px;
-    background: linear-gradient(90deg, {ORANGE}, transparent);
-    border: none;
-    margin: 20px 0;
-  }}
+  /* Phase badges */
+  .phase-badge {{ display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px; margin: 3px 2px; }}
+  .phase-0 {{ background: rgba(20,184,166,0.15); color: #14B8A6; border: 1px solid rgba(20,184,166,0.35); }}
+  .phase-1 {{ background: rgba(232,97,26,0.15); color: #E8611A; border: 1px solid rgba(232,97,26,0.35); }}
+  .phase-2 {{ background: rgba(59,130,246,0.15); color: #3B82F6; border: 1px solid rgba(59,130,246,0.35); }}
+  .phase-3 {{ background: rgba(245,158,11,0.15); color: #F59E0B; border: 1px solid rgba(245,158,11,0.35); }}
 
-  /* ── Streamlit overrides ── */
-  .stSlider > div > div > div > div {{ background: {ORANGE} !important; }}
-  .stSelectbox > div > div {{ background: {INPUT_BG}; border-color: #1E2D45; }}
-  .stNumberInput > div > div > input {{ background: {INPUT_BG}; border-color: #1E2D45; color: #E8EDF5; }}
-  div[data-testid="stMetric"] {{
-    background: {CARD_START};
-    border: 1px solid #1E2D45;
-    border-radius: 10px;
-    padding: 14px;
-  }}
-  div[data-testid="stMetric"] label {{ color: #7B8A9E !important; }}
-  div[data-testid="stMetric"] [data-testid="stMetricValue"] {{ color: #E8611A !important; font-family: 'JetBrains Mono', monospace; }}
-  .stButton > button {{
-    background: linear-gradient(135deg, {ORANGE}, {AMBER});
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    padding: 10px 28px;
-    transition: opacity 0.2s;
-  }}
-  .stButton > button:hover {{ opacity: 0.85; }}
-  h1, h2, h3 {{ color: #E8EDF5 !important; }}
-  .stTabs [data-baseweb="tab"] {{ color: #7B8A9E; }}
-  .stTabs [aria-selected="true"] {{ color: #E8611A !important; border-bottom-color: #E8611A !important; }}
+  /* Divider */
+  .orange-divider {{ height: 1px; background: linear-gradient(90deg, rgba(232,97,26,0.5), transparent); border: none; margin: 24px 0; }}
+
+  /* Typography */
+  h1 {{ color: #E8EDF5 !important; font-weight: 800; letter-spacing: -0.5px; }}
+  h2 {{ color: #E8EDF5 !important; font-weight: 700; }}
+  h3 {{ color: #E8EDF5 !important; font-weight: 600; }}
+  .stMarkdown p {{ line-height: 1.7; color: #C5CDD8; }}
+  .stCaption p {{ color: #7B8A9E !important; font-size: 0.78rem !important; }}
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {{ width: 5px; height: 5px; }}
+  ::-webkit-scrollbar-track {{ background: #070B14; }}
+  ::-webkit-scrollbar-thumb {{ background: #1E2D45; border-radius: 10px; }}
+  ::-webkit-scrollbar-thumb:hover {{ background: rgba(232,97,26,0.5); }}
+
+  /* File uploader */
+  [data-testid="stFileUploader"] {{ background: rgba(17,24,39,0.6); border: 2px dashed #1E2D45; border-radius: 12px; padding: 8px; transition: border-color 0.2s; }}
+  [data-testid="stFileUploader"]:hover {{ border-color: rgba(232,97,26,0.4); }}
+
+  /* Progress & spinner */
+  .stProgress > div > div > div {{ background: linear-gradient(90deg, #E8611A, #F59E0B); border-radius: 4px; }}
+  .stSpinner > div {{ border-top-color: #E8611A !important; }}
+
+  /* Dataframe */
+  .stDataFrame {{ border-radius: 10px; overflow: hidden; border: 1px solid #1E2D45; }}
+
+  /* Alerts */
+  .stAlert {{ border-radius: 10px; }}
+
 </style>
 ''', unsafe_allow_html=True)
 
