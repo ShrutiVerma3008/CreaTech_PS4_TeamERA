@@ -9,8 +9,8 @@ import streamlit as st
 from frontend.charts import (
     make_gauge, make_cluster_chart, make_floor_heatmap, make_design_revision_chart,
 )
-from frontend.theme import GREEN, AMBER, RED, ORANGE, TEXT
-
+from frontend.theme import GREEN, AMBER, RED, ORANGE, TEXT, TEAL
+from backend.core.clustering import generate_kit_bom
 
 def render(state: dict) -> None:
     """
@@ -62,6 +62,36 @@ def render(state: dict) -> None:
 
     with col_cluster:
         st.plotly_chart(make_cluster_chart(df_floors), use_container_width=True)
+
+    # ── Automated Kitting (Kit BOM) ──────────────────────────────────────
+    st.markdown("<div class='section-header'>📦 Automated Kitting (Kit BOM)</div>",
+                unsafe_allow_html=True)
+    st.markdown("""
+    <div class='callout-teal'>
+      <b>Generating Standard Kit for Dominant Cluster...</b><br>
+      Converts cluster geometry into a specific physical Bill of Materials (BOM) for crane lifting.
+      Assumes 600mm wall panels and 1500x1000mm slab panels.
+    </div>
+    """, unsafe_allow_html=True)
+    
+    kit_bom = generate_kit_bom(cluster_summary)
+    if kit_bom:
+        kb1, kb2, kb3, kb4 = st.columns(4)
+        kb_metrics = [
+            (kb1, f"Cluster {kit_bom['cluster_id']}", "Target Cluster", TEAL),
+            (kb2, f"{kit_bom['wall_panels_600mm']}", "Wall Panels (600mm)", ORANGE),
+            (kb3, f"{kit_bom['slab_panels_1500x1000']}", "Slab Panels (1.5sqm)", GREEN),
+            (kb4, f"{kit_bom['col_panels_standard']}", "Column Panels", TEXT),
+        ]
+        for col, val, label, color in kb_metrics:
+            col.markdown(f"""
+            <div class='metric-card'>
+              <div class='metric-value' style='color:{color};'>{val}</div>
+              <div class='metric-label'>{label}</div>
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.info("No valid clusters found to generate a Kit BOM.")
 
     # ── Floor-type heatmap ───────────────────────────────────────────────
     st.plotly_chart(make_floor_heatmap(df_floors), use_container_width=True)

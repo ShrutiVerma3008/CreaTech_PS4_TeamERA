@@ -26,6 +26,7 @@ import frontend.pages.cost         as pg_cost
 import frontend.pages.inventory    as pg_inventory
 import frontend.pages.building_data as pg_building_data
 import frontend.pages.roadmap      as pg_roadmap
+import frontend.pages.portfolio    as pg_portfolio
 
 # ── Backend modules
 from backend.utils.synthetic_data import generate_building_data, simulate_forecast
@@ -78,7 +79,7 @@ with st.sidebar:
     project_cost         = st.slider("Total Project Cost (₹ Cr)", 100, 800, 500, 50)
     repetition_threshold = st.slider("Repetition Score Trigger (%)", 50, 90, 75, 5)
     seed                 = st.number_input("Random Seed", value=42, step=1)
-    strip_buffer         = st.number_input("Stripping buffer (weeks)", min_value=1, max_value=8, value=2)
+    strip_buffer         = st.number_input("Stripping buffer (weeks) — ACI 347R-14 curing", min_value=1, max_value=8, value=2)
     transport_weeks      = st.number_input("Panel transport time (weeks)", min_value=1, max_value=4, value=1)
 
     st.markdown("<hr style='border-color:#1E2D45;'>", unsafe_allow_html=True)
@@ -403,18 +404,20 @@ if st.session_state.results_ready:
     }
 
     # ── Tab routing ───────────────────────────────────────────
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "🎯 Repetition Analysis",
         "💰 Cost Optimization",
         "📦 Inventory & Forecast",
         "📐 Building Data",
         "🗺️ Roadmap & Impact",
+        "🌍 Cross-Site Portfolio"
     ])
     with tab1: pg_repetition.render(shared)
     with tab2: pg_cost.render(shared)
     with tab3: pg_inventory.render(shared)
     with tab4: pg_building_data.render(shared)
     with tab5: pg_roadmap.render(shared)
+    with tab6: pg_portfolio.render(shared)
 
     # ── Elevator Pitch ────────────────────────────────────────
     st.markdown("<hr class='orange-divider'>", unsafe_allow_html=True)

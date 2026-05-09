@@ -196,7 +196,45 @@ def compute_repetition_score(
         "count":    (id_col,   "count"),
         "avg_slab": (area_col, "mean"),
         "avg_wall": (wall_col, "mean"),
+        "avg_col":  (col_col,  "mean"),
     }
     cluster_summary = df.groupby("cluster").agg(**agg_map).reset_index()
 
     return df, repetition_score, cluster_summary, rho_k_map, reuse_pairs, overall_reuse
+
+
+def generate_kit_bom(cluster_summary: pd.DataFrame) -> dict:
+    """
+    Translates the geometric averages of the dominant non-noise cluster 
+    into a physical Kit Bill of Materials (BOM).
+    
+    Industry standard conversion rules:
+    - Wall Panels (0.6m width): wall_length / 0.6
+    - Slab Panels (1.5 sqm area): slab_area / 1.5
+    - Column Panels: 4 panels per column
+    
+    Returns
+    -------
+    dict: The physical kit BOM.
+    """
+    if cluster_summary.empty:
+        return {}
+
+    # Exclude noise (-1) and find cluster with max count
+    valid = cluster_summary[cluster_summary["cluster"] != -1]
+    if valid.empty:
+        return {}
+        
+    dominant = valid.loc[valid["count"].idxmax()]
+    
+    wall_len = dominant["avg_wall"]
+    slab_area = dominant["avg_slab"]
+    col_count = dominant.get("avg_col", 0)
+    
+    return {
+        "cluster_id": int(dominant["cluster"]),
+        "floor_count": int(dominant["count"]),
+        "wall_panels_600mm": int(wall_len / 0.6),
+        "slab_panels_1500x1000": int(slab_area / 1.5),
+        "col_panels_standard": int(col_count * 4),
+    }
