@@ -15,8 +15,10 @@
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![PuLP](https://img.shields.io/badge/PuLP-LP%20Solver-4CAF50?style=for-the-badge&logo=python&logoColor=white)](https://coin-or.github.io/pulp/)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-DBSCAN-F7931E?style=for-the-badge&logo=scikitlearn&logoColor=white)](https://scikit-learn.org)
+[![IS 456](https://img.shields.io/badge/IS%20456%3A2000-Strip%20Schedule-blue?style=for-the-badge)](https://bis.gov.in)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
 [![CreaTech](https://img.shields.io/badge/L%26T_CreaTech_'26-Problem_Statement_4-FF6B00?style=for-the-badge)](https://www.larsentoubro.com)
+
 <br/>
 
 > ### 🏆 Finals Submission · L&T CreaTech '26 · Problem Statement 4
@@ -34,18 +36,19 @@
 | 02 | [The Solution — What FormOptiX Does](#-the-solution--what-formoptix-does) |
 | 03 | [Impact Numbers](#-impact-numbers) |
 | 04 | [Three Core Pillars](#-three-core-pillars) |
-| 05 | [System Architecture](#-system-architecture) |
-| 06 | [Technical Deep Dive](#-technical-deep-dive) |
-| 07 | [Academic Foundation](#-academic-foundation) |
-| 08 | [Tech Stack](#-tech-stack) |
-| 09 | [Project Structure](#-project-structure) |
-| 10 | [Installation & Usage](#-installation--usage) |
-| 11 | [Input Format](#-input-format) |
-| 12 | [Output — What You Get](#-output--what-you-get) |
-| 13 | [Competitive Landscape](#-competitive-landscape) |
-| 14 | [Roadmap](#-roadmap) |
-| 15 | [Team](#-team) |
-| 16 | [References](#-references) |
+| 05 | [What's New — Novel Contributions](#-whats-new--novel-contributions) |
+| 06 | [System Architecture](#-system-architecture) |
+| 07 | [Technical Deep Dive](#-technical-deep-dive) |
+| 08 | [Academic Foundation](#-academic-foundation) |
+| 09 | [Tech Stack](#-tech-stack) |
+| 10 | [Project Structure](#-project-structure) |
+| 11 | [Installation & Usage](#-installation--usage) |
+| 12 | [Input Format](#-input-format) |
+| 13 | [Output — What You Get](#-output--what-you-get) |
+| 14 | [Competitive Landscape](#-competitive-landscape) |
+| 15 | [Roadmap](#-roadmap) |
+| 16 | [Team](#-team) |
+| 17 | [References](#-references) |
 
 ---
 
@@ -73,9 +76,9 @@ In a **₹500 Crore construction project**, formwork is the silent cost centre t
 
 1. **No repetition intelligence** — site engineers manually identify which floors look similar. This takes days, is error-prone, and ignores stripping cycle times entirely.
 
-2. **No LP-based BoQ optimisation** — procurement is done by gut feel or simple demand summation. Holding costs, idle costs, and reuse opportunities are invisible.
+2. **No LP-based BoQ optimisation** — procurement is done by demand summation + a 20% buffer. Holding costs, idle costs, and reuse opportunities are completely invisible.
 
-3. **No design freeze protection** — panels are ordered while drawings are still changing. A 10% design revision after procurement causes ~30% rework cost on affected work packages *(Ibbs, 1997)*.
+3. **No design freeze protection** — panels are ordered while drawings are still changing. A 10% geometric revision after procurement causes ~30% rework cost on affected work packages *(Ibbs, 1997)*.
 
 **FormOptiX fixes all three. Algorithmically. Before a single slab is poured.**
 
@@ -85,43 +88,54 @@ In a **₹500 Crore construction project**, formwork is the silent cost centre t
 
 FormOptiX is a **Streamlit-based decision support system** that takes a floor schedule Excel file and returns an optimised, procurement-ready Bill of Quantities in under 4 hours — replacing a 5-day manual process.
 
+It is **not** a visualisation dashboard. Every number it displays is backed by a mathematical constraint, a solver, and a published paper.
+
 ```
   UPLOAD FLOOR SCHEDULE
           │
           ▼
-  ┌───────────────────┐
-  │  Data Validation  │  ← 6-check pipeline (nulls, dupes,
-  │  + Column Mapping │    schedule logic, positivity)
-  └─────────┬─────────┘
-            │
-            ▼
-  ┌───────────────────┐
-  │  Design Freeze    │  ← CV-based DI index
-  │  Guard            │    SAFE / WARNING / HALT
-  └──────┬────────────┘
-         │
-    ┌────┴─────┐
-    │          │
-  STABLE     HALT
-    │          │
-    ▼          ▼
-  DBSCAN    Stop. Fix
-  Cluster   drawings
-  Floors    first.
-    │
-    ▼
-  Build Reuse
-  Eligibility Matrix
-  (strip time + transport)
-    │
-    ▼
-  LP BoQ Optimiser
-  (per SKU, per week)
-    │
-    ▼
-  PDF Report +
-  Delivery Schedule +
-  Savings vs Baseline
+  ┌───────────────────────┐
+  │   Data Validation     │  ← 6-check pipeline (nulls, dupes,
+  │   + Column Mapping    │    schedule logic, positivity)
+  └──────────┬────────────┘
+             │
+             ▼
+  ┌───────────────────────┐
+  │  IS 456:2000 Strip    │  ← Auto-compute min strip weeks
+  │  Schedule Generator   │    per component type (slab/wall/col)
+  └──────────┬────────────┘
+             │
+             ▼
+  ┌───────────────────────┐
+  │  Design Freeze Guard  │  ← CV-based DI index + MAD outliers
+  │                       │    SAFE / WARNING / HALT
+  │                       │    + Predictive Risk (session history)
+  └────┬──────────────────┘
+       │
+  ┌────┴─────┐
+  │          │
+STABLE     HALT
+  │          │
+  ▼          ▼
+DBSCAN    Stop. Fix
+Cluster   drawings
+Floors    first.
+  │
+  ▼
+Build Reuse Eligibility Matrix
+(strip time + transport, IS 456:2000)
+  │
+  ▼
+LP BoQ Optimiser
+(per SKU, per week, CBC solver)
+  │
+  ▼
+3-Baseline Savings Comparison
+(Zero-reuse / Experienced Planner / FormOptiX)
+  │
+  ▼
+PDF Report + Delivery Schedule
++ Cross-Site Panel Pool
 ```
 
 ---
@@ -134,16 +148,16 @@ These numbers are computed on the **40-floor synthetic tower demo dataset** incl
 
 | Metric | Value | Source |
 |---|---|---|
-| **Formwork cost reduction** | 15.30% | LP optimiser vs baseline |
+| **Formwork cost reduction** | 15.30% | LP optimiser vs zero-reuse baseline |
 | **BoQ cycle time** | < 4 hours | vs 3–5 days manual |
 | **Panel reuse rate** | 60–80% on typical clusters | Peurifoy & Oberlender (2010) benchmark |
-| **Excess inventory reduction** | ~65% | idle cost minimisation |
+| **Excess inventory reduction** | ~65% | Idle cost minimisation in LP |
 | **BoQ accuracy** | Mathematical optimum | LP produces exact optimum for given inputs |
 | **Rework cost avoided** | ~30% of at-risk procurement | Ibbs (1997), Table 3 |
 
 </div>
 
-> **Note on accuracy:** FormOptiX does not claim a percentage accuracy figure. The LP solver produces the **mathematical optimum** for given inputs — deviation from manual BoQ equals manual planning overhead, not algorithmic error. Claims without a validation dataset are noise.
+> **Note on accuracy:** FormOptiX does not claim a percentage accuracy figure. The LP solver produces the **mathematical optimum** for given inputs. Deviation from manual BoQ equals manual planning overhead, not algorithmic error.
 
 ---
 
@@ -158,7 +172,9 @@ These numbers are computed on the **40-floor synthetic tower demo dataset** incl
 
 DBSCAN clusters floors by geometric similarity — slab area, wall length, column count. But geometry alone is not enough.
 
-**The physical constraint:** panels can only be reused if the source floor is **stripped and transported** before the target floor needs them.
+**Why DBSCAN and not k-means?** DBSCAN does not require pre-specifying cluster count, and correctly classifies unique floors (Basement, Terrace, Refuge) as noise rather than forcing them into a reuse family.
+
+**The physical constraint:** panels can only be reused if the source floor is stripped and transported before the target floor needs them.
 
 ```
 eligible[i][j] = True
@@ -167,17 +183,15 @@ eligible[i][j] = True
   ≤ week_start[j]
 ```
 
-Clusters with **zero valid reuse pairs** are reclassified as noise and sent for custom order — not incorrectly grouped into a reuse family.
+Strip weeks are computed from **IS 456:2000 Cl.11.3** minimum cure times — not user estimates.
+
+Clusters with **zero valid reuse pairs** are reclassified as noise and sent for custom order.
 
 Reuse coefficient per cluster:
-
 ```
-ρ_k = valid_pairs
-      ───────────
-      total_pairs
+ρ_k = valid_pairs / total_pairs
 ```
-
-Industry benchmark: **60–80%** *(Peurifoy & Oberlender, 2010, Ch.7)*
+Industry benchmark: **60–80%** *(Peurifoy & Oberlender, 2010)*
 
 </td>
 <td width="33%" valign="top">
@@ -202,9 +216,17 @@ Subject to:
   C3: x_w ≤ total_demand_sku
 ```
 
-All cost parameters (`c_p`, `c_h`, `c_i`) are **sidebar inputs** — nothing hardcoded. The solver always returns `Optimal` status before displaying any result.
+All cost parameters (`c_p`, `c_h`, `c_i`) are **sidebar inputs** — nothing hardcoded.
 
-Baseline comparison runs automatically — savings are computed against a zero-reuse, full-procurement scenario.
+**Three-baseline comparison** (new):
+
+| Baseline | Method |
+|---|---|
+| Zero-reuse | `Σ c_p × D_w` |
+| Experienced planner | Zero × 0.65 (35% reuse) |
+| FormOptiX LP | CBC solver output |
+
+The solver always returns `Optimal` status before displaying any result.
 
 </td>
 <td width="33%" valign="top">
@@ -212,7 +234,7 @@ Baseline comparison runs automatically — savings are computed against a zero-r
 ### 🛡️ Pillar 3
 ### Design Freeze Guard
 
-Uses **Median Absolute Deviation (MAD)** — not standard deviation — for outlier detection. Standard deviation is not robust in small samples (n < 25); outliers inflate std and mask themselves *(Montgomery, 2019; Leys et al., 2013)*.
+Uses **Median Absolute Deviation (MAD)** — not standard deviation — for outlier detection. Standard deviation is not robust in small samples (n < 25); outliers inflate std and mask themselves *(Leys et al., 2013)*.
 
 ```
 median_f = median(feature)
@@ -224,16 +246,17 @@ Unstable if:
 ```
 
 Design Instability Index:
-
 ```
 DI = (CV_slab + CV_wall + CV_col) / 3
 
-DI ≤ 10%      → SAFE
+DI ≤ 10%       → SAFE
 10% < DI ≤ 15% → WARNING
 DI > 15%       → HALT
 ```
 
-**15% threshold calibrated from Ibbs (1997):** projects exceeding 15% geometric variance show **3× higher rework costs**.
+**Predictive Design Change Risk** (new): DI history across multiple uploads generates a forward-looking HIGH / MEDIUM / LOW risk label — turning the guard from diagnostic to predictive.
+
+15% threshold calibrated from Ibbs (1997): projects exceeding 15% variance show **3× higher rework costs**.
 
 </td>
 </tr>
@@ -241,27 +264,56 @@ DI > 15%       → HALT
 
 ---
 
+## 🆕 What's New — Novel Contributions
+
+These are the five capabilities that no existing construction tool combines in a single system:
+
+**1. Physical reuse eligibility filter on DBSCAN**
+Existing literature clusters floors by geometry. FormOptiX adds IS 456:2000 strip-time + transport lead time filtering *before* declaring a reuse pair valid. Floors can be geometrically identical but schedule-incompatible — and that distinction is non-trivial.
+
+**2. MAD-based outlier detection for procurement gating**
+No existing construction tool uses MAD for design instability detection. All use standard deviation, which is demonstrably unreliable for small floor samples (n < 25). FormOptiX uses the Leys et al. (2013) recommended method.
+
+**3. Three-baseline savings comparison**
+Savings are not just compared to zero-reuse — they are also compared against an "experienced human planner" baseline (35% reuse, Dania et al., 2015), giving a fair, conservative savings claim.
+
+**4. Predictive Design Change Risk**
+DI history across multiple session uploads generates a forward-looking risk label (HIGH / MEDIUM / LOW), turning the system from a diagnostic tool to a predictive one.
+
+**5. IS 456:2000 compliance as a direct LP input**
+Strip weeks are not user-guessed; they are computed from Indian Standard cure times per component type and fed directly into the LP reuse vector — making the optimisation legally grounded.
+
+---
+
 ## 🔬 System Architecture
 
 ```
-try2_real.py  (Streamlit entry point — 2,500+ lines)
+try2_real.py  (Streamlit entry point — ~3,200 lines)
 │
 ├── utils/data_loader.py
 │   └── validate_and_map(df, col_map) → df
-│       ├── Check A: No nulls (hard stop)
+│       ├── Check A: No nulls in required columns (hard stop)
 │       ├── Check B: No duplicate floor_id (hard stop)
 │       ├── Check C: strip_week ≥ week_end (hard stop)
 │       ├── Check D: Positive area + wall length (hard stop)
 │       ├── Check E: Positive integer col_count (hard stop)
 │       └── Check F: Known SKU (warning only)
 │
+├── utils/demand_calc.py
+│   └── IS 456:2000 strip schedule auto-computation
+│       ├── Slab soffits: 14–28 days (IS 456:2000, Table 11)
+│       ├── Vertical surfaces: 16–24 hours
+│       └── Violations auto-adjusted upward + flagged
+│
 ├── freeze_guard.py
 │   ├── compute_design_freeze(df) → dict
 │   │   └── {CV_slab, CV_wall, CV_col, DI, status, recommendation}
 │   ├── identify_unstable_floors(df) → list
-│   │   └── MAD-based, 2.5σ threshold (Leys et al., 2013)
+│   │   └── MAD-based, 2.5× threshold (Leys et al., 2013)
 │   ├── estimate_rework_cost(unstable, df, c_p) → dict
 │   │   └── 30% penalty factor (Ibbs, 1997, Table 3)
+│   ├── predict_design_risk(session_di_history) → str
+│   │   └── HIGH / MEDIUM / LOW (trend analysis across uploads)
 │   └── get_procurement_recommendation(di, clusters, ids) → dict
 │       └── PROCURE ALL / STABLE ONLY / HALT
 │
@@ -277,8 +329,10 @@ try2_real.py  (Streamlit entry point — 2,500+ lines)
 │   │   ├── Separate LpProblem per SKU (PuLP + CBC)
 │   │   ├── Constraints C1 (demand), C2 (balance), C3 (cap)
 │   │   └── Solver status guard: non-Optimal → error dict, never a result
-│   └── compute_baseline(df, c_p) → float
-│       └── Zero-reuse reference: Σ(c_p × weekly_demand)
+│   ├── compute_baseline(df, c_p) → float
+│   │   └── Zero-reuse reference: Σ(c_p × weekly_demand)
+│   └── compute_planner_baseline(df, c_p) → float
+│       └── Experienced planner reference: zero × 0.65 (Dania et al., 2015)
 │
 ├── utils/report_generator.py
 │   └── generate_boq_pdf(boq_df, delivery_df, metrics, project_name) → bytes
@@ -314,14 +368,14 @@ FormOptiX extracts three geometric features per floor:
 **Normalisation** (StandardScaler — zero mean, unit variance):
 
 ```
-         f_ij − μ_j
-f̃_ij = ──────────────
-              σ_j
+f̃_ij = (f_ij − μ_j) / σ_j
 ```
 
-**DBSCAN** (eps=0.5, min_samples=2) groups floors into typical clusters and noise points.
+Prevents area (850 m²) from dominating column count (24) in Euclidean distance.
 
-**Physical reuse filter** — geometry alone is insufficient. For each cluster, the eligibility matrix is computed:
+**DBSCAN** (eps=0.5, min_samples=2) groups floors into typical clusters and noise points. Noise = unique floors (Basement, Terrace, Refuge) — excluded from reuse families, not forced into one.
+
+**Physical reuse filter** — geometry is necessary but not sufficient:
 
 ```python
 eligible[i][j] = (
@@ -330,9 +384,9 @@ eligible[i][j] = (
 )
 ```
 
-Clusters where `valid_pairs == 0` are reclassified as noise. They cannot reuse panels with any other floor regardless of geometric similarity — their schedule prevents it.
+Strip weeks computed from IS 456:2000 Cl.11.3 (slab soffits: 14–28 days; vertical surfaces: 16–24 hours). Clusters where `valid_pairs == 0` are reclassified as noise.
 
-*Sources: Ester et al. (1996), Hanna (1998) Ch.4, ACI 347R-14 S.5*
+*Sources: Ester et al. (1996), Schubert et al. (2017), Hanna (1998) Ch.4, ACI 347R-14 S.5, IS 456:2000*
 
 </details>
 
@@ -364,27 +418,36 @@ C3:  x_w ≤ total_demand_sku                    (demand-derived cap)
      x_w, h_w, i_w ≥ 0                         (non-negativity)
 ```
 
-**Baseline** (zero-reuse reference):
-```
-baseline = Σ_w Σ_sku  c_p × D_w_sku
-```
+**Default cost parameters (all user-configurable):**
 
-Savings = baseline − optimised. The LP is always verified: `optimised ≤ baseline` before results are displayed.
+| Parameter | Default | Meaning |
+|---|---|---|
+| `c_p` | ₹15,000/panel | Procurement cost |
+| `c_h` | ₹500/panel/week | Holding cost (yard storage, ~2%/month) |
+| `c_i` | ₹800/panel/week | Idle cost (locked in poured slab) |
+
+**Three baselines compared automatically:**
+
+| Baseline | Formula | Source |
+|---|---|---|
+| Zero-reuse | `Σ c_p × D_w` | Internal |
+| Experienced planner | `zero_baseline × 0.65` | Dania et al. (2015) |
+| FormOptiX LP | CBC objective value | This system |
+
+Assertion: `optimised ≤ baseline` always verified before display.
 
 *Sources: Hillier & Lieberman (2021) Ch.3, Biruk & Jaskowski (2017), Mitchell et al. (2011), Forrest & Lougee-Heimer (2005)*
 
 </details>
 
 <details>
-<summary><b>🛡️ Design Freeze Guard — MAD-based outlier detection</b></summary>
+<summary><b>🛡️ Design Freeze Guard — MAD-based outlier detection + predictive risk</b></summary>
 
 <br/>
 
 **Why MAD and not standard deviation:**
 
-Standard deviation is inflated by the very outliers you are trying to detect. In a 5-floor sample where 2 floors have 3× the slab area, std rises so sharply that `|value − mean| > 1.5σ` is never triggered for any floor — the outliers mask themselves.
-
-MAD (Median Absolute Deviation) uses the median as the centre, which does not move when extreme values are added:
+In a 5-floor sample where 2 floors have 3× the typical slab area, `std` rises so sharply that no floor triggers `|value − mean| > 1.5σ` — the outliers mask themselves. MAD uses the median, which doesn't move when extreme values are added.
 
 ```
 median_f  = median(feature values)
@@ -406,9 +469,22 @@ DI    = (CV_slab + CV_wall + CV_col) / 3
 | 10–15% | ⚠️ WARNING | Procure stable clusters only |
 | > 15% | 🛑 HALT | Freeze drawings first |
 
-*15% threshold: Ibbs (1997) — projects above 15% show 3× rework cost increase.*
-*MAD method: Leys et al. (2013) — recommended over std for small samples.*
-*CV as stability measure: Montgomery (2019) Ch.6.*
+**Rework Cost Estimation:**
+```
+panels_at_risk        = n_unstable_floors × avg_col_count
+rework_cost_order_now = panels_at_risk × c_p × 0.30
+savings_if_wait_2w    = rework_cost_order_now × 0.80
+```
+
+**Predictive Risk (session history):**
+
+| Condition | Risk Level |
+|---|---|
+| ≥ 2 uploads above 10% AND trending upward | HIGH |
+| ≥ 1 upload above 10% OR trend > 5pp | MEDIUM |
+| All uploads ≤ 10% | LOW |
+
+*Sources: Ibbs (1997), Leys et al. (2013), Montgomery (2019) Ch.6*
 
 </details>
 
@@ -433,7 +509,7 @@ eligible if:
 saving_rs = matched_qty × c_p
 ```
 
-The algorithm is **greedy first-fit** — not LP-optimal — which is appropriate for a prototype. `idle_qty` is reduced after each match to prevent double-allocation.
+The algorithm is **greedy first-fit** — appropriate for prototype. `idle_qty` is reduced after each match to prevent double-allocation.
 
 *Source: Dania et al. (2015) — cross-site reallocation as a cost-reduction strategy.*
 
@@ -443,9 +519,9 @@ The algorithm is **greedy first-fit** — not LP-optimal — which is appropriat
 
 ## 📚 Academic Foundation
 
-Every algorithm, threshold, and formula in FormOptiX has a named paper behind it. This is not decoration — it is what separates a defensible engineering tool from a prototype.
+Every algorithm, threshold, and formula in FormOptiX has a named paper behind it. This is what separates a defensible engineering tool from a prototype.
 
-| Algorithm / Parameter | Source | Specific finding used |
+| Algorithm / Parameter | Source | Specific Finding Used |
 |---|---|---|
 | DBSCAN clustering | Ester et al. (1996), KDD-96 | Core density-based clustering algorithm |
 | DBSCAN parameters (eps, min_samples) | Schubert et al. (2017), ACM TODS | Small min_samples justified for structured engineering datasets |
@@ -458,8 +534,10 @@ Every algorithm, threshold, and formula in FormOptiX has a named paper behind it
 | 30% rework penalty | Ibbs (1997), Table 3 | High-change projects: ~30% cost overrun |
 | CV as stability measure | Montgomery (2019), Ch.6 | Coefficient of variation for process control |
 | Strip time before reuse | ACI 347R-14 S.5 | Minimum cure time before formwork stripping |
+| IS 456:2000 strip schedule | IS 456:2000, Cl.11.3 + Table 11 | Indian Standard concrete cure times per component |
 | Panel cycling logistics | Hanna (1998), Ch.4 | Reuse logistics in multi-storey construction |
 | Reuse rate benchmark | Peurifoy & Oberlender (2010), Ch.7 | 60–80% reuse on typical floor clusters |
+| Experienced planner reuse | Dania et al. (2015), J. Eng. Design Tech. | 35% reuse midpoint without tools |
 | BoQ column format | IS 1200 Part 1 (1992), BIS | Indian standard for construction BoQ |
 | BoQ as procurement document | PMBOK 7th ed. S.4.3 (PMI, 2021) | BoQ is a formal, signable project document |
 | Cross-site reallocation | Dania et al. (2015), J. Eng. Design Tech. | Cross-site reallocation as cost-reduction strategy |
@@ -482,6 +560,7 @@ Every algorithm, threshold, and formula in FormOptiX has a named paper behind it
 │  PDF Export      │  ReportLab (BSD-licensed)           │
 │  Input Format    │  Excel (.xlsx) via openpyxl         │
 │  Output Format   │  PDF, JSON, Streamlit dataframe     │
+│  Deployment      │  Streamlit Cloud                    │
 └──────────────────┴─────────────────────────────────────┘
 ```
 
@@ -492,18 +571,18 @@ Every algorithm, threshold, and formula in FormOptiX has a named paper behind it
 ```
 FormOptiX/
 │
-├── 🚀  try2_real.py              ← Main Streamlit entry point (~2,500 lines)
+├── 🚀  try2_real.py              ← Main Streamlit entry point (~3,200 lines)
 │
 ├── 🧠  core/
 │   ├── clustering.py             ← DBSCAN + eligibility matrix + ρ_k
-│   ├── lp_optimizer.py           ← PuLP LP per SKU + baseline comparison
+│   ├── lp_optimizer.py           ← PuLP LP per SKU + 3-baseline comparison
 │   └── cross_site.py             ← Cross-site greedy panel reallocation
 │
-├── 🛡️  freeze_guard.py           ← Design Freeze Guard (CV + MAD)
+├── 🛡️  freeze_guard.py           ← Design Freeze Guard (CV + MAD + predictive risk)
 │
 ├── 📊  utils/
 │   ├── data_loader.py            ← Column mapping + 6-check validation
-│   ├── demand_calc.py            ← Reuse eligibility matrix builder
+│   ├── demand_calc.py            ← IS 456:2000 strip schedule + reuse matrix
 │   └── report_generator.py      ← 4-page PDF in IS 1200 format
 │
 ├── 📋  data/
@@ -512,12 +591,6 @@ FormOptiX/
 │
 ├── 📝  docs/
 │   └── DEMO_SCRIPT.md            ← 3-minute finals presentation script
-│
-├── 🧪  tests/
-│   ├── test_clustering.py
-│   ├── test_lp_optimizer.py
-│   ├── test_freeze_guard.py
-│   └── verify_lp.py
 │
 └── 📄  requirements.txt
 ```
@@ -555,7 +628,7 @@ streamlit run try2_real.py
 ### 4 — Or try the live demo
 
 ```
-🔗 https://shrutiverma3008-formoptix-try3-ezap9o.streamlit.app
+🔗 https://createchps4teamera-gcrdws5rfnzvfg6vkcrcnn.streamlit.app
 ```
 
 ### 5 — Run verification tests
@@ -598,9 +671,9 @@ Your Excel file should contain **one row per floor** with these columns:
 
 **Supported panel types:** `ALU-600`, `ALU-450`, `H20-beam` *(unknown types accepted with a warning)*
 
-**Column mapping:** If your file uses different column names, FormOptiX shows a dropdown mapping interface automatically. No reformatting required.
+**Column mapping:** If your file uses different column names, FormOptiX shows a dropdown mapping UI automatically — no reformatting required.
 
-**`strip_week` not in your file?** FormOptiX auto-generates it as `week_end + buffer` (default 2 weeks, per ACI 347R-14). You can change the buffer in the sidebar.
+**`strip_week` not in your file?** FormOptiX auto-generates it from IS 456:2000 minimum cure times per component type (slab soffits: 14–28 days; vertical surfaces: 16–24 hours). Violations are flagged and auto-corrected.
 
 ---
 
@@ -610,8 +683,8 @@ Your Excel file should contain **one row per floor** with these columns:
 
 | Tab | Content |
 |---|---|
-| **Repetition Intelligence** | DI gauge · CV breakdown · Unstable floor table · Rework cost estimate · Cluster summary · Reuse pair table · Overall reuse rate |
-| **BoQ Optimiser** | Savings metrics (Optimised / Baseline / Savings ₹ / Savings %) · What-if design change simulator · Full BoQ table (colour-coded) · Week-by-week delivery schedule |
+| **Repetition Intelligence** | DI gauge · CV breakdown · Unstable floor table · Rework cost estimate · Predictive risk label · Cluster summary · Reuse pair table · Overall reuse rate |
+| **BoQ Optimiser** | 3-baseline savings comparison (zero-reuse / experienced planner / FormOptiX) · What-if design change simulator · Full BoQ table (colour-coded) · Week-by-week delivery schedule |
 | **Multi-Site** | Cross-site idle panel pool · Reallocation match table · Total cross-site saving |
 
 ### Exported files
@@ -643,18 +716,21 @@ Page 4 — Methodology
 ## 🆚 Competitive Landscape
 
 ```
-Capability                     SAP    Primavera  Doka/PERI   FormOptiX
-───────────────────────────────────────────────────────────────────────
-Repetition intelligence         ✗         ✗        Partial    ✅ Full
-Physical reuse filter           ✗         ✗          ✗        ✅ Strip + transport time
-LP BoQ optimisation             ✗         ✗          ✗        ✅ Per SKU, per week
-Design Freeze Guard             ✗         ✗          ✗        ✅ MAD-based, Ibbs (1997)
-Cross-site panel visibility     ✗         ✗        Manual     ✅ Greedy match + saving ₹
-PDF output (IS 1200 format)     ✗         ✗        Partial    ✅ Signable procurement doc
-Real-time what-if simulation    ✗         ✗          ✗        ✅ Slider-driven resimulation
-Excel input (no BIM required)   ✗         ✗          ✗        ✅ Works today, no licence
-Academic citations              ✗         ✗          ✗        ✅ 15 peer-reviewed sources
-───────────────────────────────────────────────────────────────────────
+Capability                       SAP    Primavera  Doka/PERI   FormOptiX
+─────────────────────────────────────────────────────────────────────────
+Repetition intelligence           ✗         ✗        Partial    ✅ Full
+Physical reuse filter             ✗         ✗          ✗        ✅ Strip + transport time
+IS 456:2000 strip schedule        ✗         ✗          ✗        ✅ Auto-computed
+LP BoQ optimisation               ✗         ✗          ✗        ✅ Per SKU, per week
+3-baseline savings comparison     ✗         ✗          ✗        ✅ Zero / Planner / LP
+Design Freeze Guard               ✗         ✗          ✗        ✅ MAD-based, Ibbs (1997)
+Predictive design change risk     ✗         ✗          ✗        ✅ Session history trend
+Cross-site panel visibility       ✗         ✗        Manual     ✅ Greedy match + saving ₹
+PDF output (IS 1200 format)       ✗         ✗        Partial    ✅ Signable procurement doc
+Real-time what-if simulation      ✗         ✗          ✗        ✅ Slider-driven resimulation
+Excel input (no BIM required)     ✗         ✗          ✗        ✅ Works today, no licence
+Academic citations                ✗         ✗          ✗        ✅ 15 peer-reviewed sources
+─────────────────────────────────────────────────────────────────────────
 ```
 
 > FormOptiX is not a visualisation tool. It is a **decision engine** — every number it shows can be traced to a constraint, a solver, and a paper.
@@ -669,9 +745,13 @@ Academic citations              ✗         ✗          ✗        ✅ 15 peer-
  ─────────────          ─────────────────         ─────────────────────
  · Excel input          · BIM API connector       · SAP/Oracle ERP sync
  · 3-pillar engine      · RFID digital twin       · AI auto-procurement
- · PDF BoQ export       · 10+ sites live          · National yard network
- · Cross-site stub      · Full LP cross-site       · SaaS for industry
- · Demo dataset         · Mobile site app         · Real-time IoT panels
+ · IS 456:2000          · 10+ sites live          · National yard network
+   strip schedule       · Full LP cross-site      · SaaS for industry
+ · 3-baseline compare   · Mobile site app         · Real-time IoT panels
+ · Predictive DI risk
+ · PDF BoQ export
+ · Cross-site stub
+ · Demo dataset
 ```
 
 ---
@@ -683,7 +763,7 @@ Academic citations              ✗         ✗          ✗        ✅ 15 peer-
 | | **Aryan Thakur** | **Shruti Verma** | **Srijan Gupta** |
 |---|---|---|---|
 | **Role** | Backend & LP Engine | Frontend & Streamlit | ML & Clustering |
-| **Focus** | PuLP optimisation, data pipeline, LP formulation | UI/UX, Streamlit deployment, PDF generation | DBSCAN, reuse eligibility matrix, MAD detection |
+| **Focus** | PuLP optimisation, IS 456:2000 integration, 3-baseline LP formulation | UI/UX, Streamlit deployment, PDF generation | DBSCAN, reuse eligibility matrix, MAD detection, predictive risk |
 
 **Institution:** ERA\_Gati Shakti Vishwavidyalaya
 **Competition:** L&T CreaTech '26 · Problem Statement 4 · **Finals**
@@ -701,16 +781,37 @@ Academic citations              ✗         ✗          ✗        ✅ 15 peer-
 | [3] | Leys, C., Ley, C., Klein, O., Bernard, P., & Licata, L. (2013). Detecting outliers: Do not use standard deviation around the mean, use absolute deviation around the median. *J. Exp. Social Psych.*, 49(4), 764–766. | MAD outlier detection |
 | [4] | Hillier, F.S., & Lieberman, G.J. (2021). *Introduction to Operations Research* (11th ed.). McGraw-Hill. | LP objective structure |
 | [5] | Biruk, S., & Jaskowski, P. (2017). Scheduling linear construction projects with wind-up constraints. *Archives of Civil Engineering*, 63(1). | LP for construction procurement |
-| [6] | Mitchell, S., OSullivan, M., & Dunning, I. (2011). *PuLP: A linear programming toolkit for Python.* University of Auckland. | Solver implementation |
+| [6] | Mitchell, S., O'Sullivan, M., & Dunning, I. (2011). *PuLP: A linear programming toolkit for Python.* University of Auckland. | Solver implementation |
 | [7] | Forrest, J., & Lougee-Heimer, R. (2005). CBC user guide. *INFORMS*. | CBC solver justification |
 | [8] | Ibbs, C.W. (1997). Quantitative impacts of project change: Size issues. *J. Const. Eng. Mgmt.*, 123(3), 308–311. | 15% DI threshold · 30% rework factor |
 | [9] | Montgomery, D.C. (2019). *Introduction to Statistical Quality Control* (8th ed.). Wiley. | CV as stability measure |
 | [10] | ACI Committee 347. (2014). *ACI 347R-14: Guide to Formwork for Concrete.* ACI. | Strip time before reuse |
-| [11] | Hanna, A.S. (1998). *Concrete Formwork Systems.* Marcel Dekker. | Panel cycling logistics |
-| [12] | Peurifoy, R.L., & Oberlender, G.D. (2010). *Formwork for Concrete Structures* (4th ed.). McGraw-Hill. | 60–80% reuse rate benchmark |
-| [13] | IS 1200 (Part 1). (1992). *Method of Measurement of Building and Civil Engineering Works.* Bureau of Indian Standards. | BoQ column format |
-| [14] | PMI. (2021). *PMBOK Guide* (7th ed.). Project Management Institute. | BoQ as formal procurement document |
-| [15] | Dania, A.A., Fulford, R., & Hassanain, M.A. (2015). Performance evaluation of formwork systems. *J. Eng. Design Tech.*, 13(3), 376–399. | Cross-site reallocation strategy |
+| [11] | IS 456:2000. *Plain and Reinforced Concrete — Code of Practice*, Cl.11.3 + Table 11. Bureau of Indian Standards. | Minimum cure times for strip schedule |
+| [12] | Hanna, A.S. (1998). *Concrete Formwork Systems.* Marcel Dekker. | Panel cycling logistics |
+| [13] | Peurifoy, R.L., & Oberlender, G.D. (2010). *Formwork for Concrete Structures* (4th ed.). McGraw-Hill. | 60–80% reuse rate benchmark |
+| [14] | IS 1200 (Part 1). (1992). *Method of Measurement of Building and Civil Engineering Works.* Bureau of Indian Standards. | BoQ column format |
+| [15] | PMI. (2021). *PMBOK Guide* (7th ed.). Project Management Institute. | BoQ as formal procurement document |
+| [16] | Dania, A.A., Fulford, R., & Hassanain, M.A. (2015). Performance evaluation of formwork systems. *J. Eng. Design Tech.*, 13(3), 376–399. | Cross-site reallocation · experienced planner baseline |
+
+---
+
+## 🔢 Key Numbers — Quick Reference
+
+| Parameter | Value | Source |
+|---|---|---|
+| DI SAFE threshold | ≤ 10% | Calibrated from Ibbs (1997) |
+| DI WARNING threshold | 10–15% | Calibrated from Ibbs (1997) |
+| DI HALT threshold | > 15% | Ibbs (1997) — 3× rework cost |
+| Rework penalty factor | 30% | Ibbs (1997), Table 3 |
+| Reuse rate benchmark | 60–80% | Peurifoy & Oberlender (2010) |
+| MAD multiplier | 2.5× | Leys et al. (2013) |
+| DBSCAN eps | 0.5 | Schubert et al. (2017) |
+| DBSCAN min_samples | 2 | Schubert et al. (2017) |
+| Holding rate | 0.5%/week (2%/month) | Harris (1913) EOQ model |
+| Experienced planner reuse | 35% midpoint | Dania et al. (2015) |
+| Formwork % of project cost | ~8% | Industry standard |
+| BoQ savings achieved | 15.30% | LP vs zero-reuse baseline |
+| Cycle time reduction | 3–5 days → < 4 hours | Demonstrated on 40-floor demo |
 
 ---
 
