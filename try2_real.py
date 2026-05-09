@@ -1661,6 +1661,19 @@ if run_btn:
     else:
         st.session_state["df_floors_is456"] = df_floors
 
+    # ── Ensure panel counts exist for LP reuse matrix ───────────────────────
+    if "wall_panels" not in df_floors.columns:
+        _area_col = "slab_area_sqm" if "slab_area_sqm" in df_floors.columns else "slab_area_m2"
+        if _area_col in df_floors.columns:
+            _area = df_floors[_area_col].fillna(0)
+            df_floors["wall_panels"] = (_area / 8.5).astype(int)
+            df_floors["slab_panels"] = (_area / 12.0).astype(int)
+            df_floors["col_panels"]  = (_area / 18.0).astype(int)
+        else:
+            df_floors["wall_panels"] = 0
+            df_floors["slab_panels"] = 0
+            df_floors["col_panels"]  = 0
+
     # ── Clustering
     with st.spinner("\U0001f9e0  Running DBSCAN Repetition Clustering..."):
         (df_floors, rep_score, cluster_summary,
