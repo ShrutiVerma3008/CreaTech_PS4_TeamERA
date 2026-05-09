@@ -27,10 +27,24 @@ except ImportError:
 
 # ── SKU-level LP optimizer (core module)
 try:
-    from core.lp_optimizer import run_sku_optimizer, compute_baseline, compute_three_baselines
+    from core.lp_optimizer import (
+        run_sku_optimizer,
+        compute_baseline,
+        compute_three_baselines,
+        compute_experienced_planner_baseline,
+    )
     LP_MODULE_AVAILABLE = True
 except ImportError:
     LP_MODULE_AVAILABLE = False
+    def compute_experienced_planner_baseline(df, c_p, reuse_rate=0.35):  # noqa: E301
+        """Fallback stub when lp_optimizer is unavailable."""
+        import math
+        total = sum(int(df[c].sum()) for c in df.columns if c.endswith("_panels_demand"))
+        reused = math.floor(total * reuse_rate)
+        return {"total_demand": total, "panels_reused": reused,
+                "panels_purchased": total - reused,
+                "cost": float((total - reused) * c_p),
+                "reuse_rate": reuse_rate}
 # THEORETICAL BASIS & CITATIONS
 # ============================================================
 # Every algorithm choice in FormOptiX is grounded in published
@@ -1766,6 +1780,26 @@ if run_btn:
     st.session_state["savings_vs_experienced"]  = _three_bl["savings_vs_experienced"]
     st.session_state["pct_vs_experienced"]      = _three_bl["pct_vs_experienced"]
 
+    # ── Gap 2: Demand-based experienced planner baseline ─────────────────
+    # compute_experienced_planner_baseline uses actual demand columns so the
+    # experienced planner cost is derived from floor(total_demand × 0.35)
+    # rather than the implicit zero_baseline × 0.65 scalar multiplier.
+    # This ensures the value is traceable to the raw schedule data.
+    # Source: Peurifoy & Oberlender (2010) Ch.7; Dania et al. (2015).
+    if df_schedule is not None and LP_MODULE_AVAILABLE:
+        _exp_bl = compute_experienced_planner_baseline(
+            df_schedule=df_schedule,
+            c_p=float(c_p),
+            reuse_rate=0.35,
+        )
+        _exp_cost = _exp_bl["cost"]
+        # Overwrite session_state with demand-based values
+        st.session_state["experienced_baseline"]   = _exp_cost
+        st.session_state["savings_vs_experienced"] = max(_exp_cost - float(optimized_total), 0.0)
+        st.session_state["exp_total_demand"]        = _exp_bl["total_demand"]
+        st.session_state["exp_panels_reused"]       = _exp_bl["panels_reused"]
+        st.session_state["exp_panels_purchased"]    = _exp_bl["panels_purchased"]
+
     # success toast
     savings_cr = lp_results["savings"] / 1e7
     st.success(f"✅  FormOptiX Engine complete — Repetition Score: {rep_score}% | Projected savings: ₹{savings_cr:.2f} Cr")
@@ -2534,6 +2568,21 @@ if st.session_state.results_ready:
                 delta=_delta_str,
             )
             st.caption("LP optimized reuse")
+
+        # Gap 2: citation caption below the three-baseline metrics
+        # Peurifoy & Oberlender (2010), Dania et al. (2015)
+        st.caption(
+            "Experienced Planner Baseline assumes **35% reuse rate** — "
+            "mid-point of the 30–40% range observed in manual planning without tools. "
+            "Source: Peurifoy & Oberlender (2010) Ch.7; Dania et al. (2015) J.Eng.Design Tech."
+        )
+
+        # Savings vs Experienced Planner warning
+        if _savings_vs_exp <= 0 and not _demo_warning:
+            st.warning(
+                "⚠️ FormOptiX did not beat the experienced planner baseline on this dataset. "
+                "Check cost parameters or floor schedule density."
+            )
 
         st.markdown("<br>", unsafe_allow_html=True)
 

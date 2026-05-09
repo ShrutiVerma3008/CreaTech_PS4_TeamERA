@@ -259,6 +259,75 @@ def compute_baseline(df_schedule: pd.DataFrame, c_p: float, **_) -> float:
     return total
 
 
+def compute_experienced_planner_baseline(
+    df_schedule: pd.DataFrame,
+    c_p: float,
+    reuse_rate: float = 0.35,
+) -> dict:
+    """
+    Experienced planner baseline — demand-based formulation.
+
+    Academic basis
+    --------------
+    Peurifoy, R.L., & Oberlender, G.D. (2010). Formwork for Concrete
+    Structures (4th ed.). McGraw-Hill. Chapter 7.
+        → Experienced planners achieve 30–40% reuse without algorithmic
+          scheduling tools.  35% is the mid-point of this observed range.
+
+    Dania, A.A., Ye, K.M., & Baldwin, A. (2015). Improving sustainable
+    construction in developing countries.
+    J. Engineering Design and Technology, 13(3), 376–399.
+        → Cross-site reuse benchmarks confirm 35% as mid-range for manual
+          planning without optimisation tools.
+
+    Ibbs, C.W. (1997). Quantitative impacts of project change.
+    J. Construction Engineering & Management, 123(3), 308–311.
+        → Procurement done without optimisation carries cost-overrun risk;
+          experienced planners partially mitigate but cannot eliminate this.
+
+    Parameters
+    ----------
+    df_schedule : schedule DataFrame with columns [week, *_panels_demand]
+    c_p         : procurement cost per panel (₹)
+    reuse_rate  : fraction of total demand covered by reuse [0, 1).
+                  Default 0.35 = 35%, the mid-point of the 30–40% range
+                  observed by Peurifoy & Oberlender (2010) Ch.7 and
+                  validated by Dania et al. (2015).
+
+    Returns
+    -------
+    dict with keys:
+        total_demand      : int   — sum of all panel demand across SKUs & weeks
+        panels_reused     : int   — floor(total_demand × reuse_rate)
+        panels_purchased  : int   — total_demand - panels_reused
+        cost              : float — panels_purchased × c_p  (₹)
+        reuse_rate        : float — the reuse_rate used (for traceability)
+    """
+    if not (0.0 <= reuse_rate < 1.0):
+        raise ValueError(
+            f"reuse_rate must be in [0, 1). Got {reuse_rate}. "
+            "Peurifoy & Oberlender (2010) Ch.7 range: 0.30–0.40."
+        )
+
+    total_demand = 0
+    for col in df_schedule.columns:
+        if col.endswith("_panels_demand"):
+            total_demand += int(df_schedule[col].sum())
+
+    import math
+    panels_reused    = math.floor(total_demand * reuse_rate)
+    panels_purchased = total_demand - panels_reused
+    cost             = panels_purchased * c_p
+
+    return {
+        "total_demand":     total_demand,
+        "panels_reused":    panels_reused,
+        "panels_purchased": panels_purchased,
+        "cost":             float(cost),
+        "reuse_rate":       reuse_rate,
+    }
+
+
 def run_sku_optimizer(
     df_schedule: pd.DataFrame,
     df_floors: pd.DataFrame | None,
