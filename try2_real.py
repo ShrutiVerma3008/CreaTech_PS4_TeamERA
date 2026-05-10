@@ -2044,13 +2044,14 @@ if st.session_state.results_ready:
     # ============================================================
     # TABS
     # ============================================================
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
         "🎯 Repetition Analysis",
         "💰 Cost Optimization",
         "📦 Inventory & Forecast",
         "📐 Building Data",
         "🗺️ Roadmap & Impact",
-        "🏗️ Multi-Site"
+        "🏗️ Multi-Site",
+        "📄 Export & Reports",
     ])
 
     # ──────────────────────────────────────────────
@@ -2566,6 +2567,9 @@ if st.session_state.results_ready:
                             "Source: Ibbs (1997), Peurifoy & Oberlender (2010)."
                         )
 
+                # Store in session_state so Tab 7 and PDF export can access it
+                st.session_state["sensitivity_df"] = _sens_df
+
         # ── Savings vs Experienced Planner warning ──────────────────────
         if _savings_vs_exp <= 0 and not _demo_warning:
             st.warning(
@@ -2913,15 +2917,16 @@ if st.session_state.results_ready:
                         delivery_df=df_delivery,
                         metrics=_metrics,
                         project_name=project_name,
+                        sensitivity_df=st.session_state.get("sensitivity_df"),
                     )
                     st.download_button(
-                        label="\u2b07\ufe0f Download PDF",
+                        label="⬇️ Download PDF",
                         data=_pdf_bytes,
                         file_name=f"FormOptiX_BoQ_{project_name.replace(' ', '_')}.pdf",
                         mime="application/pdf",
                         key="download_boq_pdf_btn",
                     )
-                    st.success("PDF generated! Click \u2018Download PDF\u2019 above.")
+                    st.success("PDF generated! Click 'Download PDF' above.")
                 except Exception as _pdf_err:
                     st.error(f"PDF generation failed: {_pdf_err}")
 
@@ -3314,6 +3319,163 @@ if st.session_state.results_ready:
                 f"{_n_loaded} site(s) loaded. "
                 f"Upload {_n_remain} more to run cross-site matching."
             )
+
+    # ──────────────────────────────────────────────
+    # TAB 7 — EXPORT & REPORTS
+    # ──────────────────────────────────────────────
+    with tab7:
+        st.header("Export & Reports")
+        st.caption(
+            "All exports require the engine to be run first "
+            "(Tab 2 — Cost Optimization)."
+        )
+
+        _boq_ready  = "boq_results" in st.session_state
+        _sens_ready = "sensitivity_df" in st.session_state
+        _di_ready   = "freeze_result" in st.session_state
+        _proj_ok    = bool(project_name.strip())
+
+        # ── Section 1: PDF Report ─────────────────────────────────────
+        st.subheader("📋 Full Project Report (PDF)")
+        st.markdown(
+            "4-page A4 report: **Summary** / **BoQ IS 1200 format** / "
+            "**Delivery Schedule** / **Methodology + Sensitivity Analysis**"
+        )
+        if _boq_ready:
+            _t7_boq    = pd.DataFrame(st.session_state["boq_results"])
+            _t7_del    = _t7_boq[_t7_boq.get("procure", _t7_boq.iloc[:, 0]).apply(
+                lambda x: True)] if not _t7_boq.empty else _t7_boq
+            _t7_del    = _t7_boq[_t7_boq["procure"] > 0].copy() if "procure" in _t7_boq.columns else _t7_boq
+            if "estimated_delivery_week" not in _t7_del.columns:
+                _t7_del = _t7_del.copy()
+                _t7_del["estimated_delivery_week"] = _t7_del.get("week", 0) + 2
+            _t7_metrics = {
+                "optimized_cr":           st.session_state.get("optimized_total", 0) / 1e7,
+                "baseline_cr":            st.session_state.get("baseline_total", 0) / 1e7,
+                "savings_cr":             st.session_state.get("savings", 0) / 1e7,
+                "savings_pct":            st.session_state.get("savings_pct", 0),
+                "overall_reuse_rate":     st.session_state.get("overall_reuse_rate", 0),
+                "di_value":               st.session_state.get("di_value", 0),
+                "di_status":              st.session_state.get("di_status", "SAFE"),
+                "experienced_baseline_cr":st.session_state.get("experienced_baseline", 0) / 1e7,
+                "savings_vs_experienced_cr": st.session_state.get("savings_vs_experienced", 0) / 1e7,
+                "pct_vs_experienced":     st.session_state.get("pct_vs_experienced", 0),
+                "custom_area_total":      st.session_state.get("custom_area_total", 0),
+                "custom_cost_premium":    st.session_state.get("custom_cost_premium", 0),
+                "kit_count":              st.session_state.get("kit_count", 0),
+                "highest_reuse_kit":      st.session_state.get("highest_reuse_kit", "N/A"),
+            }
+            if st.button("⬇️ Download PDF Report", key="tab7_pdf_btn"):
+                try:
+                    _t7_pdf = generate_boq_pdf(
+                        boq_df=_t7_boq,
+                        delivery_df=_t7_del,
+                        metrics=_t7_metrics,
+                        project_name=project_name,
+                        sensitivity_df=st.session_state.get("sensitivity_df"),
+                    )
+                    st.download_button(
+                        label="⬇️ Download PDF",
+                        data=_t7_pdf,
+                        file_name=f"FormOptiX_BoQ_{project_name.replace(' ', '_')}.pdf",
+                        mime="application/pdf",
+                        key="tab7_pdf_dl",
+                    )
+                    st.success("PDF generated with Sensitivity Analysis on Page 4!")
+                except Exception as _e:
+                    st.error(f"PDF generation failed: {_e}")
+        else:
+            st.warning("Run the engine in Tab 2 first.")
+
+        st.markdown("---")
+
+        # ── Section 2: JSON Export ────────────────────────────────────
+        st.subheader("📦 Raw Data Export (JSON)")
+        st.markdown(
+            "Machine-readable export of all BoQ results for "
+            "**ERP / BIM integration** and Multi-Site matching."
+        )
+        if _boq_ready:
+            if st.button("⬇️ Download JSON", key="tab7_json_btn"):
+                import json as _json7
+                _boq_json7 = _json7.dumps(
+                    st.session_state["boq_results"], indent=2
+                )
+                st.download_button(
+                    label="⬇️ Download BoQ JSON",
+                    data=_boq_json7,
+                    file_name=f"BoQ_{project_name}.json",
+                    mime="application/json",
+                    key="tab7_json_dl",
+                )
+                st.caption(
+                    "Upload this JSON in the 🏗️ Multi-Site tab to "
+                    "find cross-site panel reallocation opportunities."
+                )
+        else:
+            st.warning("Run the engine in Tab 2 first.")
+
+        st.markdown("---")
+
+        # ── Section 3: Sensitivity Table Preview ─────────────────────
+        st.subheader("📊 Sensitivity Analysis Preview")
+        if _sens_ready:
+            _t7_sens = st.session_state["sensitivity_df"]
+            if not _t7_sens.empty:
+                _pct7 = ["savings_vs_zero_pct", "savings_vs_experienced_pct"]
+                try:
+                    _t7_styled = (
+                        _t7_sens.style
+                        .highlight_min(subset=_pct7, color="#FFCDD2")
+                        .highlight_max(subset=_pct7, color="#C8E6C9")
+                        .format({
+                            "optimised_cr":               "{:.2f}",
+                            "zero_baseline_cr":           "{:.2f}",
+                            "experienced_baseline_cr":    "{:.2f}",
+                            "savings_vs_zero_pct":        "{:.1f}%",
+                            "savings_vs_experienced_pct": "{:.1f}%",
+                        }, na_rep="N/A")
+                    )
+                    st.dataframe(_t7_styled, use_container_width=True)
+                except Exception:
+                    st.dataframe(_t7_sens, use_container_width=True)
+                _t7svz = _t7_sens["savings_vs_zero_pct"].dropna()
+                if len(_t7svz) > 0:
+                    st.caption(
+                        f"Savings hold between {_t7svz.min():.1f}% and {_t7svz.max():.1f}% "
+                        "across all 7 scenarios. Source: Hillier & Lieberman (2021) Ch.3."
+                    )
+        else:
+            st.info("Run the engine in Tab 2 to generate sensitivity analysis.")
+
+        st.markdown("---")
+
+        # ── Section 4: Pre-Export Checklist ──────────────────────────
+        st.subheader("✅ Pre-Export Checklist")
+        st.checkbox(
+            "Engine has been run",
+            value=_boq_ready,
+            disabled=True,
+            key="chk_engine",
+        )
+        st.checkbox(
+            "Design Freeze Guard reviewed",
+            value=_di_ready,
+            disabled=True,
+            key="chk_di",
+        )
+        st.checkbox(
+            "Sensitivity analysis complete",
+            value=_sens_ready,
+            disabled=True,
+            key="chk_sens",
+        )
+        st.checkbox(
+            "Project name entered",
+            value=_proj_ok,
+            disabled=True,
+            key="chk_proj",
+        )
 
 else:
     # Pre-run state
