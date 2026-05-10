@@ -1983,6 +1983,7 @@ if st.session_state.results_ready:
             mode="gauge+number",
             value=_di_val,
             title={"text": "Design Instability Index (DI %)"},
+            number={"suffix": "%", "font": {"size": 42}},
             gauge={
                 "axis": {"range": [0, 30]},
                 "bar":  {"color": "darkblue"},
@@ -2000,7 +2001,7 @@ if st.session_state.results_ready:
         ))
         _fig_gauge.update_layout(
             height=300,
-            margin=dict(t=40, b=10, l=20, r=20),
+            margin=dict(t=40, b=10, l=40, r=40),
             paper_bgcolor="rgba(0,0,0,0)",
             font_color=TEXT,
         )
