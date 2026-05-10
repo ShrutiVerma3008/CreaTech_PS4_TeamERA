@@ -1593,7 +1593,18 @@ if run_btn:
             st.session_state.dq_warnings = dq_warnings
 
     # ── STEP 3: Design Freeze Guard — runs for ALL modes, before clustering.
-    # HALT stops all further processing; procurement on an unstable design is wasteful.
+    # Fix 2.3 — Freeze/LP Decoupling:
+    #   Hillier & Lieberman (2021) Ch.3: LP constraints and external guards
+    #   must be decoupled to guarantee convergence. Guard computed ONCE per
+    #   file upload, cached in session_state["freeze_result"].
+    #   Montgomery (2019) Ch.6: control chart signals are advisory;
+    #   operator retains authority to proceed.
+    #   Ibbs (1997): freeze guard is advisory, not a hard procurement block.
+    _freeze_file_key = getattr(uploaded_file, "name", "synthetic") if mode != "Synthetic Demo" else "synthetic"
+    _freeze_needs_recompute = (
+        "freeze_result" not in st.session_state
+        or st.session_state.get("freeze_source_file") != _freeze_file_key
+    )
     if FREEZE_GUARD_AVAILABLE:
         # Fix 1.2 — DI Consistency: exclude overridden floors before computing DI.
         # Montgomery (2019) Ch.6: the same floors excluded from MAD detection
@@ -1610,8 +1621,16 @@ if run_btn:
         # Store on session_state so compute_change_probability uses the same subset
         st.session_state["df_freeze_active"] = df_freeze_active
 
-        freeze_result = compute_design_freeze(df_freeze_active)
-        st.session_state.freeze_result = freeze_result
+        if _freeze_needs_recompute:
+            # Compute freeze result once per file — decoupled from LP run.
+            # Hillier & Lieberman (2021) Ch.3: guards must not re-enter LP
+            # mid-optimisation; caching prevents jitter.
+            freeze_result = compute_design_freeze(df_freeze_active)
+            st.session_state.freeze_result = freeze_result
+            st.session_state["freeze_source_file"] = _freeze_file_key
+        else:
+            freeze_result = st.session_state.freeze_result
+
         # STEP 5: Store DI values for PDF export even if user jumps to export button directly.
         st.session_state["di_value"]  = freeze_result["DI"]
         st.session_state["di_status"] = freeze_result["status"]
@@ -1631,7 +1650,8 @@ if run_btn:
 
         print(f"[FormOptiX Freeze Guard] DI={freeze_result['DI']:.2f}% | "
               f"status={freeze_result['status']}"
-              f" | excluded_overrides={_n_override_for_di}")
+              f" | excluded_overrides={_n_override_for_di}"
+              f" | recomputed={_freeze_needs_recompute}")
         if freeze_result["status"] == "HALT":
             st.warning(
                 f"\U0001f512 **Design Freeze: HALT** \u2014 {freeze_result['recommendation']} "
@@ -1653,6 +1673,7 @@ if run_btn:
     else:
         st.info("\u2139\ufe0f freeze_guard.py not found \u2014 Design Freeze check skipped.")
         st.session_state.freeze_result = None
+        st.session_state["freeze_source_file"] = _freeze_file_key
         st.session_state["df_freeze_active"] = df_floors.copy()
         st.session_state["di_value"]   = 0.0
         st.session_state["di_status"]  = "N/A"
@@ -1851,7 +1872,15 @@ if st.session_state.results_ready:
         # Do not stop — show results and let judge evaluate.
 
     # ── STEP 5: Design Freeze DI breakdown table
-    if freeze_result is not None:
+    # Fix 2.3 — Step 3: Safe fallback if freeze_result missing from session.
+    # Ibbs (1997): guard is advisory; display is non-blocking.
+    # Guard against edge case where session is cleared mid-run.
+    if freeze_result is None:
+        st.info(
+            "ℹ\ufe0f Upload a project file and run the engine to see "
+            "Design Freeze Analysis."
+        )
+    elif freeze_result is not None:
         def _cv_label(cv):
             if cv > 15:   return f"<span style='color:#EF4444;font-weight:700;'>HIGH</span>"
             elif cv > 10: return f"<span style='color:#F59E0B;font-weight:600;'>MODERATE</span>"
@@ -2629,6 +2658,39 @@ if st.session_state.results_ready:
     # TAB 2 — COST OPTIMIZATION
     # ──────────────────────────────────────────────
     with tab2:
+
+        # Fix 2.3 — Freeze/LP Decoupling: soft advisory in Tab 2.
+        # Ibbs (1997) J.Const.Eng.Mgmt. 123(3) 308–311:
+        #   Freeze guard is advisory; engineer retains procurement authority.
+        # Hillier & Lieberman (2021) Ch.3:
+        #   LP constraints and external guards must be decoupled.
+        # Montgomery (2019) Ch.6:
+        #   Control chart signals are advisory; operator retains authority.
+        # LP run continues regardless of freeze status — no st.stop().
+        _tab2_freeze_status = (
+            st.session_state.get("freeze_result", {}) or {}
+        ).get("status", "SAFE")
+        _tab2_freeze_di = (
+            st.session_state.get("freeze_result", {}) or {}
+        ).get("DI", 0.0)
+
+        if _tab2_freeze_status == "HALT":
+            st.warning(
+                f"⚠️ **Design Instability Index exceeds 15% — HALT zone "
+                f"(DI = {_tab2_freeze_di:.1f}%).** "
+                "Results shown are indicative only — procurement decisions "
+                "should await design freeze. "
+                "Source: Ibbs (1997) — freeze guard is advisory; "
+                "engineer retains procurement authority."
+            )
+        elif _tab2_freeze_status == "WARNING":
+            st.info(
+                f"ℹ\ufe0f **Design Instability Index is in WARNING zone "
+                f"(DI = {_tab2_freeze_di:.1f}%, threshold 10–15%).** "
+                "Consider procuring stable clusters only. "
+                "Source: Ibbs (1997)."
+            )
+        # SAFE — LP runs silently, no banner needed.
 
         # Fix 2.1 — LP Fallback Relaxation banners
         # Hillier & Lieberman (2021) Ch.3: constraint relaxation metadata.
