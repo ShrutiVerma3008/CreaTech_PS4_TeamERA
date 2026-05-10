@@ -207,7 +207,79 @@ def _page1_summary(story, styles, metrics, project_name):
 
 
 # ─────────────────────────────────────────────────────────────────
-# PAGE 2 — Full BoQ Table
+# PAGE 2A -- Formwork Kit Specifications (optional, before BoQ table)
+# IS 1200 Part 1 (1992); Hanna (1998) Ch.4; Peurifoy & Oberlender (2010) Ch.7.
+# ─────────────────────────────────────────────────────────────────
+def _page2_kit_specs(story, styles, kit_specs):
+    """
+    Render kit specification tables for all clusters, one table per cluster.
+    Called only when kit_specs is a non-empty dict.
+
+    kit_specs format: {cluster_id (int): [list-of-4-dicts-from-compute_kit_specification]}
+
+    Academic basis
+    --------------
+    IS 1200 Part 1 (1992) -- formwork BoQ line item structure.
+    Hanna, A.S. (1998). Concrete Formwork Systems. Marcel Dekker, Ch.4.
+    Peurifoy & Oberlender (2010). Formwork for Concrete Structures, Ch.7.
+    """
+    s = styles
+    _NAVY = colors.HexColor("#1E293B")
+    _LIGHT = colors.HexColor("#F8FAFC")
+
+    story.append(Paragraph("Formwork Kit Specifications", s["page_title"]))
+    story.append(HRFlowable(width="100%", thickness=0.8, color=_ORANGE, spaceAfter=6))
+
+    for cluster_id, kit in sorted(kit_specs.items()):
+        story.append(Paragraph(
+            f"Kit Family {cluster_id} -- {len(kit)} formwork types",
+            s["ref_title"],
+        ))
+        story.append(Spacer(1, 0.15 * cm))
+
+        kit_table_data = [
+            ["Formwork Type", "IS 1200 Ref", "Area (m2)", "Panels Reqd", "SKU"]
+        ] + [
+            [
+                str(r.get("Formwork Type", "")),
+                str(r.get("IS 1200 Ref", "")),
+                str(r.get("Total Area (m2)", "")),
+                str(r.get("Panels Required", "")),
+                str(r.get("SKU", "")),
+            ]
+            for r in kit
+        ]
+
+        kit_tbl = Table(kit_table_data, colWidths=[4.8*cm, 2.4*cm, 2.2*cm, 2.4*cm, 2.2*cm])
+        kit_tbl.setStyle(TableStyle([
+            ("BACKGROUND",    (0, 0), (-1, 0),  _NAVY),
+            ("TEXTCOLOR",     (0, 0), (-1, 0),  _WHITE),
+            ("FONTNAME",      (0, 0), (-1, 0),  "Helvetica-Bold"),
+            ("FONTSIZE",      (0, 0), (-1, -1), 8),
+            ("ROWBACKGROUND", (0, 1), (-1, -1), [_WHITE, _LIGHT]),
+            ("GRID",          (0, 0), (-1, -1), 0.5, _GRAY),
+            ("TOPPADDING",    (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 5),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 5),
+            ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN",         (1, 0), (-1, -1), "CENTER"),
+        ]))
+        story.append(kit_tbl)
+        story.append(Spacer(1, 0.3 * cm))
+
+    story.append(Paragraph(
+        "Coverage ratios: Slab 1.2 m2, Column 0.9 m2, "
+        "Beam 0.6 m2, Staircase 0.5 m2 (adjustable in sidebar). "
+        "10% buffer applied per standard site practice. "
+        "IS 1200 Part 1 (1992), Hanna (1998) Ch.4, Peurifoy & Oberlender (2010) Ch.7.",
+        s["caption"],
+    ))
+    story.append(PageBreak())
+
+
+# ─────────────────────────────────────────────────────────────────
+# PAGE 2 -- Full BoQ Table
 # ─────────────────────────────────────────────────────────────────
 def _page2_boq(story, styles, boq_df):
     s = styles
@@ -543,6 +615,7 @@ def generate_boq_pdf(
     metrics: dict,
     project_name: str = "FormOptiX Project",
     sensitivity_df=None,
+    kit_specs: dict = None,
 ) -> bytes:
     """
     Generate a 4-page PDF Bill of Quantities report.
@@ -582,6 +655,13 @@ def generate_boq_pdf(
     story = []
 
     _page1_summary(story, s, metrics, project_name)
+    # Page 2A: kit specs (optional, own page)
+    if kit_specs:
+        try:
+            if isinstance(kit_specs, dict) and kit_specs:
+                _page2_kit_specs(story, s, kit_specs)
+        except Exception:
+            pass  # never crash PDF on optional section
     _page2_boq(story, s, boq_df)
     _page3_delivery(story, s, delivery_df)
     _page4_methodology(story, s)

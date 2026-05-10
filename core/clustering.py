@@ -257,6 +257,86 @@ def generate_kit_specification(
     return pd.DataFrame(rows, columns=_COLS)
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# MULTI-TYPE KIT SPECIFICATION — IS 1200 BoQ Line Items (Gap 1 v2)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def compute_kit_specification(cluster_df: "pd.DataFrame", coverage_ratios: dict) -> list:
+    """
+    Compute formwork kit specification for a cluster of floors.
+
+    Returns a list of 4 dicts, one per IS 1200 formwork type:
+        {
+            "Formwork Type"  : str,
+            "IS 1200 Ref"    : str,
+            "Total Area (m2)": float,
+            "Panels Required": int,   # ceil(area/coverage) * 1.10 buffer
+            "SKU"            : str,
+        }
+
+    Academic basis
+    --------------
+    IS 1200 Part 1 (1992) -- formwork measurement standard for Indian BoQ.
+        Item 16  : Column shuttering (super-structure)
+        Item 20a : Slab beam shuttering
+        Item 20b : Slab bottom shuttering
+        Item 29  : Staircase shuttering
+    Hanna, A.S. (1998). Concrete Formwork Systems. Marcel Dekker, Ch.4.
+        -- Panel coverage ratios and assembly logic.
+    Peurifoy, R.L., & Oberlender, G.D. (2010). Formwork for Concrete
+        Structures (4th ed.). McGraw-Hill, Ch.7.
+        -- 10% contingency buffer; kit assembly from floor geometry.
+    """
+    import math
+
+    area_col = "slab_area_m2" if "slab_area_m2" in cluster_df.columns else "slab_area_sqm"
+
+    # Sum areas across all floors in this cluster
+    total_slab_area  = float(cluster_df[area_col].sum()) if area_col in cluster_df.columns else 0.0
+    total_col_area   = float(cluster_df["col_shuttering_m2"].sum()) if "col_shuttering_m2" in cluster_df.columns else 0.0
+    total_beam_area  = float(cluster_df["beam_shuttering_m2"].sum()) if "beam_shuttering_m2" in cluster_df.columns else 0.0
+    total_stair_area = float(cluster_df["staircase_m2"].sum()) if "staircase_m2" in cluster_df.columns else 0.0
+
+    BUFFER = 1.10  # 10% buffer -- standard site practice (Peurifoy & Oberlender 2010 Ch.7)
+
+    def _panels(area: float, coverage: float) -> int:
+        if coverage <= 0 or area <= 0:
+            return 0
+        return math.ceil(area / coverage * BUFFER)
+
+    kit = [
+        {
+            "Formwork Type":    "Slab Bottom Shuttering",
+            "IS 1200 Ref":      "Item 20b",
+            "Total Area (m2)":  round(total_slab_area, 1),
+            "Panels Required":  _panels(total_slab_area, coverage_ratios.get("slab", 1.2)),
+            "SKU":              "ALU-600",
+        },
+        {
+            "Formwork Type":    "Slab Beam Shuttering",
+            "IS 1200 Ref":      "Item 20a",
+            "Total Area (m2)":  round(total_beam_area, 1),
+            "Panels Required":  _panels(total_beam_area, coverage_ratios.get("beam", 0.6)),
+            "SKU":              "H20-beam",
+        },
+        {
+            "Formwork Type":    "Column Shuttering (Super)",
+            "IS 1200 Ref":      "Item 16",
+            "Total Area (m2)":  round(total_col_area, 1),
+            "Panels Required":  _panels(total_col_area, coverage_ratios.get("col", 0.9)),
+            "SKU":              "ALU-450",
+        },
+        {
+            "Formwork Type":    "Staircase Shuttering",
+            "IS 1200 Ref":      "Item 29",
+            "Total Area (m2)":  round(total_stair_area, 1),
+            "Panels Required":  _panels(total_stair_area, coverage_ratios.get("stair", 0.5)),
+            "SKU":              "Custom",
+        },
+    ]
+    return kit
+
+
 def compute_repetition_score(
     df_floors: pd.DataFrame,
     transport_weeks: int = 1,

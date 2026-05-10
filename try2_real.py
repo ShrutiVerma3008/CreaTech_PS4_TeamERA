@@ -18,12 +18,14 @@ from utils.report_generator import generate_boq_pdf
 try:
     from core.clustering import compute_repetition_score as _core_compute_repetition_score
     from core.clustering import generate_kit_specification
+    from core.clustering import compute_kit_specification
     CLUSTERING_MODULE_AVAILABLE = True
 except ImportError:
     CLUSTERING_MODULE_AVAILABLE = False
     def generate_kit_specification(*a, **kw):  # noqa: E301
-        import pandas as _pd
-        return _pd.DataFrame(columns=["kit_id","sku","avg_area_m2","panel_count","buffer_panels","total_panels"])
+        return pd.DataFrame()
+    def compute_kit_specification(cluster_df, coverage_ratios):  # noqa: E301
+        return []
 
 # ── SKU-level LP optimizer (core module)
 try:
@@ -1182,6 +1184,41 @@ with st.sidebar:
     st.session_state["c_p"] = float(c_p)
 
 
+    # -- Coverage Ratio expander ------------------------------------------
+    with st.sidebar.expander("📐 Panel Coverage Ratios (m² per panel)"):
+        st.caption(
+            "Area each panel covers. Adjust for your "
+            "project's panel dimensions."
+        )
+        coverage_slab = st.number_input(
+            "Slab panel coverage (m²)",
+            min_value=0.5, max_value=5.0, value=1.2, step=0.1,
+            help="ALU-600: typically 1.2 m² contact area",
+            key="sidebar_cov_slab",
+        )
+        coverage_col = st.number_input(
+            "Column panel coverage (m²)",
+            min_value=0.3, max_value=3.0, value=0.9, step=0.1,
+            help="ALU-450: typically 0.9 m² for column shuttering",
+            key="sidebar_cov_col",
+        )
+        coverage_beam = st.number_input(
+            "Beam/slab-beam panel coverage (m²)",
+            min_value=0.3, max_value=3.0, value=0.6, step=0.1,
+            help="H20-beam: typically 0.6 m² soffit coverage",
+            key="sidebar_cov_beam",
+        )
+        coverage_stair = st.number_input(
+            "Staircase panel coverage (m²)",
+            min_value=0.3, max_value=2.0, value=0.5, step=0.1,
+            help="Custom: staircase panels are typically smaller",
+            key="sidebar_cov_stair",
+        )
+        st.session_state["coverage_slab"]  = coverage_slab
+        st.session_state["coverage_col"]   = coverage_col
+        st.session_state["coverage_beam"]  = coverage_beam
+        st.session_state["coverage_stair"] = coverage_stair
+
     run_btn = st.button("🚀  Run FormOptiX Engine", use_container_width=True)
 
     st.markdown(f"""<hr style='border-color:#1E2D45;'>""", unsafe_allow_html=True)
@@ -1424,7 +1461,26 @@ if mode == "Real Site Data":
                 df_raw["strip_week"] = df_raw["week_end"] + strip_buffer
                 st.info(f"ℹ️ strip_week auto-generated (week_end + {strip_buffer} weeks)")
                 
-            df_raw = validate_and_map(df_raw, col_map)
+            df_raw, auto_cols = validate_and_map(df_raw, col_map)
+
+            # Show auto-generated column info
+            if auto_cols:
+                st.info(
+                    "\u2139\ufe0f The following formwork area columns were "
+                    "auto-generated from your floor geometry. "
+                    "Upload them directly for project-specific accuracy:\n"
+                    + "\n".join(f"  \u00b7 {c}" for c in auto_cols)
+                )
+            # Validate non-negative values on the 3 new columns
+            for _fc in ["col_shuttering_m2", "beam_shuttering_m2", "staircase_m2"]:
+                if _fc in df_raw.columns:
+                    _bad = df_raw[df_raw[_fc] < 0]
+                    if not _bad.empty:
+                        st.error(
+                            f"{_fc} has negative values in rows: "
+                            f"{_bad.index.tolist()}. Check your data."
+                        )
+                        st.stop()
 
             # ── Step 1: Derive standard_pct and custom_area_m2 ───────────
             # Peurifoy & Oberlender (2010): standard panel SKUs cover ~85% of
@@ -2131,66 +2187,110 @@ if st.session_state.results_ready:
         else:
             st.info("No kit families found.")
 
-        # ── Kit Specification — Panel Counts per Kit ──────────────────────
-        # Gap 1 fix: generate_kit_specification derives panel counts from
-        # avg_slab_area ÷ SKU coverage ratio (Peurifoy & Oberlender, 2010 Ch.7).
-        # 10% buffer per panel class = standard site contingency.
+        # -- Kit Specification v2: per-cluster, multi-type IS 1200 table ---
+        # Gap 1 v2: compute_kit_specification uses actual formwork areas
+        # (slab, column, beam, staircase) per IS 1200 Part 1 (1992).
+        # Hanna (1998) Ch.4; Peurifoy & Oberlender (2010) Ch.7.
         if kit_families:
-            with st.expander("📐 Kit Specification — Panel Counts", expanded=False):
-                st.caption(
-                    "Panel counts derived from avg. slab area ÷ SKU coverage ratio. "
-                    "Buffer = 10% of panel_count, rounded up. "
-                    "Source: Peurifoy & Oberlender (2010) Ch.7."
-                )
+            _coverage_ratios = {
+                "slab":  st.session_state.get("coverage_slab",  1.2),
+                "col":   st.session_state.get("coverage_col",   0.9),
+                "beam":  st.session_state.get("coverage_beam",  0.6),
+                "stair": st.session_state.get("coverage_stair", 0.5),
+            }
+            _df_for_kit = st.session_state.get(
+                "df_floors_is456",
+                st.session_state.get("df_floors", pd.DataFrame())
+            )
 
-                # Determine which floor dataframe to use
+            _cluster_ids = (
+                sorted([c for c in _df_for_kit["cluster"].unique() if c != -1])
+                if "cluster" in _df_for_kit.columns else []
+            )
+
+            if _cluster_ids:
+                for _cid in _cluster_ids:
+                    _cdf = _df_for_kit[_df_for_kit["cluster"] == _cid]
+                    _kit = compute_kit_specification(_cdf, _coverage_ratios)
+                    if not _kit:
+                        continue
+                    with st.expander(
+                        f"📐 Kit Specification — Cluster {_cid} "
+                        f"({len(_cdf)} floors)",
+                        expanded=True,
+                    ):
+                        _kit_df = pd.DataFrame(_kit)
+
+                        def _hl_max(col):
+                            if col.name == "Panels Required":
+                                max_v = col.max()
+                                return [
+                                    "background-color: #FEF3C7"
+                                    if v == max_v else ""
+                                    for v in col
+                                ]
+                            return [""] * len(col)
+
+                        try:
+                            st.dataframe(
+                                _kit_df.style.apply(_hl_max),
+                                use_container_width=True,
+                                hide_index=True,
+                            )
+                        except Exception:
+                            st.dataframe(_kit_df, use_container_width=True, hide_index=True)
+
+                        _total_panels = _kit_df["Panels Required"].sum()
+                        st.metric(
+                            "Total Panels This Kit",
+                            f"{_total_panels:,}",
+                            help="Sum across all formwork types + 10% buffer",
+                        )
+                        st.caption(
+                            "Coverage ratios adjustable in sidebar. "
+                            "IS 1200 Part 1 (1992) line item refs shown. "
+                            "10% buffer applied per standard site practice. "
+                            "Source: Hanna (1998) Ch.4, "
+                            "Peurifoy & Oberlender (2010) Ch.7."
+                        )
+            else:
+                # Fallback: old generate_kit_specification display
                 _df_for_spec = st.session_state.get("df_floors_is456", None)
                 if _df_for_spec is None:
-                    _df_for_spec = st.session_state.get("df_floors",
-                        pd.DataFrame(columns=["floor_id", "slab_area_sqm"])
+                    _df_for_spec = st.session_state.get(
+                        "df_floors", pd.DataFrame(columns=["floor_id", "slab_area_sqm"])
                     )
+                with st.expander("📐 Kit Specification — Panel Counts", expanded=False):
+                    st.caption(
+                        "Panel counts derived from avg. slab area / SKU coverage ratio. "
+                        "Buffer = 10% of panel_count, rounded up. "
+                        "Source: Peurifoy & Oberlender (2010) Ch.7."
+                    )
+                    _kit_spec_df = generate_kit_specification(
+                        kit_families=kit_families, df=_df_for_spec, sku_coverage_ratios=None
+                    )
+                    if not _kit_spec_df.empty:
+                        st.dataframe(_kit_spec_df, use_container_width=True, hide_index=True)
 
-                _kit_spec_df = generate_kit_specification(
-                    kit_families=kit_families,
-                    df=_df_for_spec,
-                    sku_coverage_ratios=None,   # uses DEFAULT_SKU_COVERAGE
-                )
-
-                if _kit_spec_df.empty:
-                    st.info("Kit specification not available — floor area data missing.")
-                else:
-                    _spec_kits = _kit_spec_df["kit_id"].unique().tolist()
-                    for _kid in _spec_kits:
-                        _sub = _kit_spec_df[_kit_spec_df["kit_id"] == _kid].copy()
-                        _sub = _sub.reset_index(drop=True)
-
-                        # Header row per kit
-                        _kit_meta = next(
-                            (k for k in kit_families if k["kit_id"] == _kid), {}
-                        )
-                        _rp = _kit_meta.get("reuse_potential", "")
-                        _fc = _kit_meta.get("floor_count", 0)
-                        _area = _sub["avg_area_m2"].iloc[0] if len(_sub) > 0 else 0
-
-                        st.markdown(
-                            f"**{_kid}** &nbsp;·&nbsp; {_fc} floors &nbsp;·&nbsp; "
-                            f"Avg. slab area: **{_area:.1f} m²** &nbsp;·&nbsp; "
-                            f"Reuse potential: **{_rp}**"
-                        )
-
-                        _display = _sub[["sku", "panel_count", "buffer_panels", "total_panels"]].rename(columns={
-                            "sku":           "SKU",
-                            "panel_count":   "Base Panels",
-                            "buffer_panels": "Buffer (10%)",
-                            "total_panels":  "Total Panels",
-                        })
-
+            # Noise cluster (atypical floors)
+            if "cluster" in _df_for_kit.columns and (-1 in _df_for_kit["cluster"].values):
+                _noise_df = _df_for_kit[_df_for_kit["cluster"] == -1]
+                with st.expander(
+                    f"🔶 Atypical Floors — Custom Order Required "
+                    f"({len(_noise_df)} floors)"
+                ):
+                    st.warning(
+                        f"{len(_noise_df)} floor(s) do not fit any standard kit family. "
+                        "These require custom panel orders. "
+                        f"Floors: {_noise_df['floor_id'].tolist()}"
+                    )
+                    _noise_kit = compute_kit_specification(_noise_df, _coverage_ratios)
+                    if _noise_kit:
                         st.dataframe(
-                            _display,
+                            pd.DataFrame(_noise_kit),
                             use_container_width=True,
                             hide_index=True,
                         )
-                        st.markdown("---")
 
         # ── Panel Reuse Intelligence ──────────────────────────────────────
         # Step 6: Overall reuse rate validated against Peurifoy & Oberlender
@@ -2911,6 +3011,26 @@ if st.session_state.results_ready:
                 _metrics["savings_vs_experienced_cr"] = st.session_state.get("savings_vs_experienced", 0) / 1e7
                 _metrics["pct_vs_experienced"]        = st.session_state.get("pct_vs_experienced", 0)
 
+                # Build kit_specs dict for PDF (one entry per non-noise cluster)
+                _pdf_kit_specs = {}
+                _df_for_pdf_kit = st.session_state.get(
+                    "df_floors_is456", st.session_state.get("df_floors", pd.DataFrame())
+                )
+                _pdf_coverage = {
+                    "slab":  st.session_state.get("coverage_slab",  1.2),
+                    "col":   st.session_state.get("coverage_col",   0.9),
+                    "beam":  st.session_state.get("coverage_beam",  0.6),
+                    "stair": st.session_state.get("coverage_stair", 0.5),
+                }
+                if "cluster" in _df_for_pdf_kit.columns:
+                    for _pid in _df_for_pdf_kit["cluster"].unique():
+                        if _pid == -1:
+                            continue
+                        _pc_df = _df_for_pdf_kit[_df_for_pdf_kit["cluster"] == _pid]
+                        _pk = compute_kit_specification(_pc_df, _pdf_coverage)
+                        if _pk:
+                            _pdf_kit_specs[int(_pid)] = _pk
+
                 try:
                     _pdf_bytes = generate_boq_pdf(
                         boq_df=df_boq,
@@ -2918,6 +3038,7 @@ if st.session_state.results_ready:
                         metrics=_metrics,
                         project_name=project_name,
                         sensitivity_df=st.session_state.get("sensitivity_df"),
+                        kit_specs=_pdf_kit_specs if _pdf_kit_specs else None,
                     )
                     st.download_button(
                         label="⬇️ Download PDF",
@@ -3366,6 +3487,25 @@ if st.session_state.results_ready:
                 "highest_reuse_kit":      st.session_state.get("highest_reuse_kit", "N/A"),
             }
             if st.button("⬇️ Download PDF Report", key="tab7_pdf_btn"):
+                # Build kit_specs for Tab 7
+                _t7_kit_specs = {}
+                _t7_df_kit = st.session_state.get(
+                    "df_floors_is456", st.session_state.get("df_floors", pd.DataFrame())
+                )
+                _t7_cov = {
+                    "slab":  st.session_state.get("coverage_slab",  1.2),
+                    "col":   st.session_state.get("coverage_col",   0.9),
+                    "beam":  st.session_state.get("coverage_beam",  0.6),
+                    "stair": st.session_state.get("coverage_stair", 0.5),
+                }
+                if "cluster" in _t7_df_kit.columns:
+                    for _t7pid in _t7_df_kit["cluster"].unique():
+                        if _t7pid == -1:
+                            continue
+                        _t7_pc_df = _t7_df_kit[_t7_df_kit["cluster"] == _t7pid]
+                        _t7_pk = compute_kit_specification(_t7_pc_df, _t7_cov)
+                        if _t7_pk:
+                            _t7_kit_specs[int(_t7pid)] = _t7_pk
                 try:
                     _t7_pdf = generate_boq_pdf(
                         boq_df=_t7_boq,
@@ -3373,6 +3513,7 @@ if st.session_state.results_ready:
                         metrics=_t7_metrics,
                         project_name=project_name,
                         sensitivity_df=st.session_state.get("sensitivity_df"),
+                        kit_specs=_t7_kit_specs if _t7_kit_specs else None,
                     )
                     st.download_button(
                         label="⬇️ Download PDF",
