@@ -769,6 +769,20 @@ Academic citations                ✗         ✗          ✗        ✅ 17 pee
  · Demo dataset
 ```
 
+### 🛡️ Loophole Roadmap — All Fixes Complete
+
+Five judge-identified weaknesses have been proactively addressed:
+
+| Fix | Name | Status | Commit |
+|-----|------|--------|--------|
+| 1.1 | MAD Override Flag — intentional floor exclusion | ✅ Done | `1ea56a6` |
+| 1.2 | DI Consistency — single filtered dataset everywhere | ✅ Done | `6cb6492` |
+| 2.1 | LP Fallback Relaxation — two-pass CBC, never crashes | ✅ Done | `b4db6a5` |
+| 2.2 | Cross-Site Timestamp Check — staleness advisory | ✅ Done | `8d6d39a` |
+| 2.3 | Freeze/LP Decoupling — guard cached, Tab 2 advisory | ✅ Done | `dd3bc2a` |
+
+> Full technical defense with academic citations: [`LOOPHOLE_ROADMAP.md`](LOOPHOLE_ROADMAP.md)
+
 ---
 
 ## 👥 Team
@@ -830,6 +844,7 @@ Academic citations                ✗         ✗          ✗        ✅ 17 pee
 | Sensitivity range (vs zero) | 59.2% – 69.0% | 7-scenario LP re-run (Gap 4) |
 | Design change probability (DI>15%) | 78% | Ibbs (1997) inflection point (Gap 3) |
 | Gap commits | af6f605 · 52399b8 · 7a2627a · cfc8674 | Gaps 1–4 |
+| Fix commits | 1ea56a6 · 6cb6492 · b4db6a5 · 8d6d39a · dd3bc2a | Fixes 1.1–2.3 |
 | Cycle time reduction | 3–5 days → < 4 hours | Demonstrated on 40-floor demo |
 
 ---
