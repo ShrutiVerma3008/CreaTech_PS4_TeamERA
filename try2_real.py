@@ -1154,6 +1154,33 @@ with st.sidebar:
 
     st.markdown("<hr style='border-color:#1E2D45;'>", unsafe_allow_html=True)
 
+    # Fix 3.0 — IS 456:2000 Stripping Standard toggle
+    # IS 456:2000 Cl.11.3 (BIS): primary Indian standard.
+    # ACI 347R-14 S.5: American standard, kept as secondary reference.
+    # Hanna (1998) Ch.4: stripping time controls panel reuse eligibility window.
+    st.markdown("### 📐 Stripping Standard")
+    stripping_standard = st.radio(
+        "Stripping Standard",
+        options=["IS456", "ACI347R-14"],
+        index=0,   # IS 456:2000 default — Indian standard
+        help=(
+            "IS 456:2000 Cl.11.3 — Indian standard (recommended for L&T projects). "
+            "ACI 347R-14 S.5 — American standard (flat week_end + 2)."
+        ),
+        key="stripping_standard"
+    )
+    if stripping_standard == "IS456":
+        st.caption(
+            "🇮🇳 **IS 456:2000 Cl.11.3 active** (default). "
+            "ALU-600: 2w · ALU-450: 1w · H20-beam: 2w"
+        )
+    else:
+        st.caption(
+            "🇺🇸 **ACI 347R-14 S.5 active.** "
+            "All SKUs: week_end + 2 weeks (flat)."
+        )
+
+
     st.markdown("### 🔩 Panel Unit Costs (₹)")
     wall_cost = st.number_input("Wall Panel", value=8000, step=500)
     slab_cost = st.number_input("Slab Panel", value=12000, step=500)
@@ -1453,15 +1480,33 @@ if mode == "Real Site Data":
                 
             valid_map = {v: k for k, v in col_map.items() if v and v != "--- Not in file ---"}
             df_raw = df_raw.rename(columns=valid_map)
-            
-            # strip_week default = week_end + 2 weeks
-            # Based on ACI 347R-14 Section 5: minimum cure before stripping
-            # plus 1 week transport buffer (Hanna, 1998, Ch.4)
+
+            # Fix 3.0 — strip_week auto-generation using selected standard.
+            # IS 456:2000 Cl.11.3: user-supplied strip_week is always preserved.
+            # ACI 347R-14 S.5: flat 2-week buffer (secondary reference).
+            # Hanna (1998) Ch.4: stripping time controls reuse eligibility window.
             if "strip_week" not in df_raw.columns and "week_end" in df_raw.columns:
-                df_raw["strip_week"] = df_raw["week_end"] + strip_buffer
-                st.info(f"ℹ️ strip_week auto-generated (week_end + {strip_buffer} weeks)")
-                
-            df_raw, auto_cols = validate_and_map(df_raw, col_map)
+                from utils.data_loader import get_strip_weeks_is456, get_strip_weeks_aci
+                if stripping_standard == "IS456":
+                    df_raw["strip_week"] = (
+                        df_raw["week_end"]
+                        + get_strip_weeks_is456(df_raw)
+                    )
+                    st.info(
+                        "\u2139\ufe0f strip_week auto-generated using "
+                        "**IS 456:2000 Cl.11.3** \u2014 SKU-specific stripping time."
+                    )
+                else:
+                    df_raw["strip_week"] = df_raw["week_end"] + strip_buffer
+                    st.info(
+                        f"\u2139\ufe0f strip_week auto-generated using "
+                        f"**ACI 347R-14 S.5** (week_end + {strip_buffer} weeks)."
+                    )
+
+            df_raw, auto_cols = validate_and_map(
+                df_raw, col_map,
+                stripping_standard=stripping_standard,
+            )
 
             # Show auto-generated column info
             if auto_cols:
@@ -1570,6 +1615,17 @@ if not st.session_state.results_ready and mode == "Synthetic Demo":
     run_btn = True
 
 if run_btn:
+    # Fix 3.0 — dynamic stripping standard label for captions.
+    # IS 456:2000 Cl.11.3 (BIS): primary Indian standard (default).
+    # ACI 347R-14 S.5 (2014): American standard, secondary reference.
+    # Hanna (1998) Ch.4: stripping time controls panel reuse eligibility.
+    _stripping_standard = st.session_state.get("stripping_standard", "IS456")
+    _strip_std_label = (
+        "IS 456:2000 Cl.11.3 (Indian standard — default)"
+        if _stripping_standard == "IS456"
+        else "ACI 347R-14 S.5 (American standard)"
+    )
+
     # ── Generate / Load data
     with st.spinner("🏗️  Loading building data..."):
         if mode == "Synthetic Demo":
@@ -2604,9 +2660,17 @@ if st.session_state.results_ready:
             else:
                 st.success("✅ All floors within standard panel coverage threshold.")
 
-        # ── IS 456 Stripping Schedule expander ───────────────────────────────
-        # Step 4: IS 456:2000, Clause 11.3, Table 11
-        with st.expander("🗓️ IS 456 Stripping Schedule", expanded=False):
+        # ── Stripping Schedule expander ───────────────────────────────────────
+        # Fix 3.0: title updates dynamically with stripping_standard toggle.
+        # IS 456:2000 Cl.11.3 (BIS): primary Indian standard.
+        # ACI 347R-14 S.5: secondary reference.
+        _strip_std_tab1 = st.session_state.get("stripping_standard", "IS456")
+        _expander_title = (
+            "🗓️ IS 456:2000 Stripping Schedule (active)"
+            if _strip_std_tab1 == "IS456"
+            else "🗓️ ACI 347R-14 Stripping Schedule (active)"
+        )
+        with st.expander(_expander_title, expanded=False):
             _df_is456 = st.session_state.get("df_floors_is456", df_floors)
 
             _is456_cols = [
@@ -2646,13 +2710,21 @@ if st.session_state.results_ready:
                 else:
                     st.success("✅ All user-entered strip weeks comply with IS 456:2000 minimum cure times.")
 
-                # 4c. Caption
-                st.caption(
-                    "Stripping schedule per IS\u00a0456:2000 \u2014 "
-                    "Walls: 1\u00a0week, Slabs: 2\u00a0weeks, Cantilevers: 3\u00a0weeks from casting. "
-                    "Effective strip week = max(user value, IS\u00a0456 minimum). "
-                    "Source: IS\u00a0456:2000, Clause\u00a011.3, Table\u00a011."
-                )
+                # 4c. Caption — Fix 3.0: dynamic standard label
+                _active_std = st.session_state.get("stripping_standard", "IS456")
+                if _active_std == "IS456":
+                    st.caption(
+                        "Stripping schedule per IS\u00a0456:2000 Cl.11.3 — "
+                        "Walls/cols: 1\u00a0week, Slabs/beams: 2\u00a0weeks, Cantilevers: 3\u00a0weeks from casting. "
+                        "Effective strip week = max(user value, IS\u00a0456 minimum). "
+                        "Source: IS\u00a0456:2000, Clause\u00a011.3, Table\u00a011."
+                    )
+                else:
+                    st.caption(
+                        "Stripping schedule per ACI\u00a0347R-14 S.5 — "
+                        "All SKUs: week_end + 2 weeks (flat buffer). "
+                        "Source: ACI Committee 347 (2014), ACI 347R-14, Section 5."
+                    )
 
     # ──────────────────────────────────────────────
     # TAB 2 — COST OPTIMIZATION

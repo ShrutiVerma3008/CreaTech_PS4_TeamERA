@@ -1,7 +1,97 @@
 import pandas as pd
 import streamlit as st
 
-def validate_and_map(df, col_map):
+# ==============================================================
+# Stripping time helpers
+# ==============================================================
+
+# IS 456:2000 Clause 11.3 — Stripping time for Indian RCC construction.
+# Primary standard for L&T and all Indian contractors.
+# BIS (2000). IS 456:2000 Plain and Reinforced Concrete — Code of Practice,
+#   Clause 11.3, Table 11. Bureau of Indian Standards.
+# SKU-based mapping derived from formwork type classification.
+# Hanna (1998) Ch.4: stripping time directly controls panel reuse
+#   eligibility window; incorrect strip_week delays reuse and inflates cost.
+
+SKU_STRIP_WEEKS_IS456 = {
+    # IS 456:2000 Cl.11.3: 14 days (slab > 4.5m span) = 2 weeks
+    "ALU-600":  2,
+    # IS 456:2000 Cl.11.3: 7 days (slab ≤ 4.5m / props left under) = 1 week
+    "ALU-450":  1,
+    # IS 456:2000 Cl.11.3: 14 days (beam soffits, span ≤ 6m) = 2 weeks
+    "H20-beam": 2,
+}
+DEFAULT_STRIP_WEEKS_IS456 = 2  # conservative default for unknown SKUs
+
+
+def get_strip_weeks_is456(df: pd.DataFrame) -> "pd.Series":
+    """
+    Return per-row strip week delta based on IS 456:2000 Clause 11.3.
+
+    Uses the 'sku' or 'panel_type' column (whichever is present) to look up
+    the minimum stripping time for each panel type.
+
+    Returns
+    -------
+    pd.Series of int — strip_week delta (weeks after week_end)
+
+    Academic basis
+    --------------
+    IS 456:2000 Cl.11.3 (BIS): Indian mandatory standard for RCC
+      stripping time. Primary reference for all L&T projects.
+    Hanna (1998) Ch.4: stripping time controls panel reuse window.
+    """
+    # Accept either 'sku' or 'panel_type' column
+    sku_col = "sku" if "sku" in df.columns else "panel_type"
+    if sku_col not in df.columns:
+        return pd.Series([DEFAULT_STRIP_WEEKS_IS456] * len(df), index=df.index)
+
+    return (
+        df[sku_col]
+        .map(SKU_STRIP_WEEKS_IS456)
+        .fillna(DEFAULT_STRIP_WEEKS_IS456)
+        .astype(int)
+    )
+
+
+def get_strip_weeks_aci(df: pd.DataFrame) -> "pd.Series":
+    """
+    Return per-row strip week delta based on ACI 347R-14 Section 5.
+
+    Flat 2-week buffer regardless of SKU or span.
+    Kept as secondary reference for international project comparison.
+
+    Returns
+    -------
+    pd.Series of int — constant 2 for every row
+
+    Academic basis
+    --------------
+    ACI Committee 347 (2014). ACI 347R-14: Guide to Formwork for Concrete.
+      Section 5 — minimum cure time before stripping.
+    """
+    return pd.Series([2] * len(df), index=df.index)
+
+
+def validate_and_map(df, col_map, stripping_standard: str = "IS456"):
+    """
+    Validate, rename, and enrich a floor DataFrame.
+
+    Parameters
+    ----------
+    df                  : pd.DataFrame — raw floor data after column mapping
+    col_map             : dict — mapping from required_name -> source_name
+    stripping_standard  : str — \"IS456\" (default) or \"ACI347R-14\"
+        IS456      -> IS 456:2000 Cl.11.3 SKU-based strip weeks (Indian standard)
+        ACI347R-14 -> ACI 347R-14 S.5 flat 2-week buffer (American standard)
+        If strip_week already exists in df, it is ALWAYS preserved unchanged.
+
+    Academic basis
+    --------------
+    IS 456:2000 Cl.11.3 (BIS): mandatory Indian standard for stripping time.
+    ACI 347R-14 S.5 (2014): American standard, retained as fallback.
+    Hanna (1998) Ch.4: stripping time controls reuse eligibility window.
+    """
     # If the user passed a dataframe that already has been renamed,
     # or passed col_map to do the renaming:
     valid_map = {v: k for k, v in col_map.items() if v and v != "--- Not in file ---"}
@@ -9,13 +99,37 @@ def validate_and_map(df, col_map):
     df = df.rename(columns=valid_map)
 
     required_cols = [
-        "floor_id", "week_start", "week_end", "strip_week",
+        "floor_id", "week_start", "week_end",
         "slab_area_m2", "wall_length_m", "col_count", "panel_type"
     ]
 
     missing = [c for c in required_cols if c not in df.columns]
     if missing:
-        st.error(f"Missing required mapped columns: {missing}. Please map them.")
+        # strip_week is auto-generated below if absent — not a hard stop
+        hard_missing = [m for m in missing if m != "strip_week"]
+        if hard_missing:
+            st.error(f"Missing required mapped columns: {hard_missing}. Please map them.")
+            st.stop()
+
+    # Auto-generate strip_week if absent — IS456 or ACI347R-14
+    # IS 456:2000 Cl.11.3: user-supplied values always take priority.
+    # Hanna (1998) Ch.4: stripping time is primary reuse constraint.
+    if "strip_week" not in df.columns or df["strip_week"].isnull().all():
+        if stripping_standard == "IS456":
+            # IS 456:2000 Cl.11.3 — SKU-specific minimum stripping time
+            df["strip_week"] = df["week_end"] + get_strip_weeks_is456(df)
+        else:
+            # ACI 347R-14 S.5 — flat 2-week buffer
+            df["strip_week"] = df["week_end"] + get_strip_weeks_aci(df)
+
+    # Re-check required_cols now that strip_week is guaranteed
+    required_cols_check = [
+        "floor_id", "week_start", "week_end", "strip_week",
+        "slab_area_m2", "wall_length_m", "col_count", "panel_type"
+    ]
+    still_missing = [c for c in required_cols_check if c not in df.columns]
+    if still_missing:
+        st.error(f"Missing required columns after auto-generation: {still_missing}. Please map them.")
         st.stop()
 
     # Check A — No nulls in any of the 8 columns
