@@ -2541,6 +2541,17 @@ if st.session_state.results_ready:
         st.plotly_chart(fig_dfi, use_container_width=True)
 
         drop = v1_score - v3_score
+
+        # Fix: UI contradiction patch — secondary signal subordinated to DI freeze guard.
+        # Ibbs (1997) J.Const.Eng.Mgmt. 123(3): DI is the primary procurement gate.
+        # Montgomery (2019) Ch.6: control signals must be hierarchical, not contradictory.
+        # Repetition Score stability is a valid secondary signal, but must never override DI.
+        st.caption(
+            "ℹ️ Note: Repetition Score stability (chart above) measures design revision consistency — "
+            "a secondary signal. The Design Instability Index (DI) in the freeze guard above "
+            "is the primary procurement gate. Source: Ibbs (1997), Montgomery (2019) Ch.6."
+        )
+
         if drop > 15:
             st.markdown(f"""
             <div class='callout-red'>
@@ -2551,12 +2562,39 @@ if st.session_state.results_ready:
             </div>
             """, unsafe_allow_html=True)
         else:
-            st.markdown(f"""
-            <div class='callout-green'>
-              <b>✅ Design Stable</b><br>
-              Score variation {drop:.1f}pp is within acceptable range. Procurement can proceed.
-            </div>
-            """, unsafe_allow_html=True)
+            # Tri-state outcome — DI freeze status is the primary gate (Ibbs 1997).
+            # Repetition score variation is low (drop ≤ 15pp), but DI may still be HALT.
+            _rep_freeze_status = (
+                st.session_state.get("freeze_result") or {}
+            ).get("status", "SAFE")
+            _rep_di_val = (
+                st.session_state.get("freeze_result") or {}
+            ).get("DI", 0.0)
+
+            if _rep_freeze_status == "SAFE":
+                st.success(
+                    f"✅ Repetition Score is stable across design revisions "
+                    f"(variation {drop:.1f}pp ≤ 15pp). "
+                    f"DI is also in SAFE zone ({_rep_di_val:.1f}%). "
+                    "Procurement can proceed. "
+                    "Source: Ibbs (1997), Montgomery (2019) Ch.6."
+                )
+            elif _rep_freeze_status == "WARNING":
+                st.warning(
+                    f"⚠️ Repetition Score is stable across revisions (variation {drop:.1f}pp), "
+                    f"but DI is in WARNING zone ({_rep_di_val:.1f}%, threshold 10–15%). "
+                    "Procure stable clusters only. "
+                    "Do not interpret repetition stability as full clearance. "
+                    "Source: Ibbs (1997)."
+                )
+            else:  # HALT
+                st.error(
+                    f"❌ Repetition Score variation is low ({drop:.1f}pp), "
+                    f"but DI exceeds 15% — HALT zone ({_rep_di_val:.1f}%). "
+                    "Repetition stability does not override the freeze guard. "
+                    "Do not proceed with procurement until DI drops below 10%. "
+                    "Source: Ibbs (1997) — DI is the primary procurement gate."
+                )
 
         # ── Standard vs Custom Panel Analysis ────────────────────────────
         # Step 2: New expander — after clustering section, before LP section.
