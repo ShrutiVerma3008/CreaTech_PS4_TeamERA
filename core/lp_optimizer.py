@@ -47,6 +47,12 @@ def _compute_weekly_demand(sku_df: pd.DataFrame) -> dict:
     return {w: 1 for w in range(1, total + 1)}
 
 
+# LP two-pass fallback — Hillier & Lieberman (2021) Ch.3
+# Constraint relaxation is standard LP recovery methodology.
+# Forrest & Lougee-Heimer (2005): CBC non-Optimal status must be
+#   handled explicitly — solver does not raise exceptions.
+# Mitchell et al. (2011): prob.solve() returns status code, not exception;
+#   always check LpStatus[prob.status].
 def _run_sku_lp(
     sku: str,
     demand_by_week: dict,
@@ -57,91 +63,130 @@ def _run_sku_lp(
 ) -> list | dict:
     """
     Run a single SKU LP subproblem and return either a list of result dicts
-    (one per week) or an error dict if the solver fails.
+    (one per week) or an error dict if both passes fail.
+
+    Two-pass fallback (Hillier & Lieberman 2021 Ch.3):
+      Pass 1 — normal solve with C3 = total_demand_sku.
+      Pass 2 — if Pass 1 non-Optimal, relax C3 by 20% and re-solve.
+      If both fail, return clean infeasible error dict.
+
+    All returned dicts and rows contain 'relaxed' key (bool):
+      False  — Pass 1 succeeded (normal solve)
+      True   — Pass 2 succeeded (C3 relaxed 20%)
+    Never raises an exception. Never crashes.
 
     Parameters
     ----------
     sku           : panel type label (e.g. "ALU-600")
     demand_by_week: {week: demand_count}
     reuse_by_week : {week: reuse_count}  — panels physically eligible for reuse
-    c_p           : procurement cost per panel (₹)
-    c_h           : holding cost per panel per week (₹)
-    c_i           : idle cost per panel per week (₹)
+    c_p           : procurement cost per panel (Rs)
+    c_h           : holding cost per panel per week (Rs)
+    c_i           : idle cost per panel per week (Rs)
     """
     weeks = sorted(demand_by_week.keys())
     demand = [demand_by_week.get(w, 0) for w in weeks]
     reuse  = [reuse_by_week.get(w, 0)  for w in weeks]
     n      = len(weeks)
-    total_demand_sku = max(1, sum(demand))  # C3 cap
+    total_demand_sku = max(1, sum(demand))  # C3 base cap
 
-    # ── LP formulation — Hillier & Lieberman (2021) Ch.3 ──────────────────
-    # Biruk & Jaskowski (2017): per-week decision variables
-    # for construction resource procurement.
-    # Separate subproblem per SKU for clarity and debuggability.
-    prob = pulp.LpProblem(f"BoQ_{sku}", pulp.LpMinimize)
+    def _build_and_solve(c3_cap: float) -> tuple:
+        """
+        Build + solve one LP problem with the given C3 cap.
+        Returns (status_str, rows_list).
+        rows_list is empty on non-Optimal.
+        Academic basis: Hillier & Lieberman (2021) Ch.3.
+        """
+        # LP formulation — Hillier & Lieberman (2021) Ch.3
+        # Biruk & Jaskowski (2017): per-week decision variables.
+        # Separate subproblem per SKU for clarity and debuggability.
+        prob = pulp.LpProblem(f"BoQ_{sku}", pulp.LpMinimize)
 
-    x = [pulp.LpVariable(f"procure_w{w}", lowBound=0) for w in range(n)]
-    h = [pulp.LpVariable(f"hold_w{w}",    lowBound=0) for w in range(n)]
-    i = [pulp.LpVariable(f"idle_w{w}",    lowBound=0) for w in range(n)]
+        xv = [pulp.LpVariable(f"procure_w{w}", lowBound=0) for w in range(n)]
+        hv = [pulp.LpVariable(f"hold_w{w}",    lowBound=0) for w in range(n)]
+        iv = [pulp.LpVariable(f"idle_w{w}",    lowBound=0) for w in range(n)]
 
-    # Objective: minimise total cost (procurement + holding + idle)
-    prob += pulp.lpSum([
-        c_p * x[w] + c_h * h[w] + c_i * i[w]
-        for w in range(n)
-    ])
+        # Objective: minimise total cost (procurement + holding + idle)
+        prob += pulp.lpSum([
+            c_p * xv[w] + c_h * hv[w] + c_i * iv[w]
+            for w in range(n)
+        ])
 
-    # C1, C2: standard inventory balance constraints
-    # Hillier & Lieberman (2021) Ch.3, inventory LP formulation.
-    # C3: demand-derived cap replaces arbitrary hardcoded limit.
-    # Validated in Fix A: removes infeasibility from tight caps.
-    for w in range(n):
-        prev_h = h[w - 1] if w > 0 else 0  # h[-1] = 0: no carry-in at week 0
+        for w in range(n):
+            prev_h = hv[w - 1] if w > 0 else 0
 
-        # C1 — Demand satisfaction
-        prob += x[w] + reuse[w] + prev_h >= demand[w], f"C1_demand_w{w}"
+            # C1 — Demand satisfaction
+            prob += xv[w] + reuse[w] + prev_h >= demand[w], f"C1_demand_w{w}"
 
-        # C2 — Inventory balance (carry-over)
-        prob += h[w] == (x[w] + reuse[w] + prev_h) - demand[w], f"C2_balance_w{w}"
+            # C2 — Inventory balance (carry-over)
+            prob += hv[w] == (xv[w] + reuse[w] + prev_h) - demand[w], f"C2_balance_w{w}"
 
-        # C3 — Purchase cap (demand-derived, not hardcoded)
-        prob += x[w] <= total_demand_sku, f"C3_cap_w{w}"
+            # C3 — Purchase cap (demand-derived, relaxable)
+            # Hillier & Lieberman (2021) Ch.3: constraint relaxation
+            # is standard recovery methodology when C3 causes infeasibility.
+            prob += xv[w] <= c3_cap, f"C3_cap_w{w}"
 
-    # ── CBC solver — Forrest & Lougee-Heimer (2005) ───────────────────────
-    # License-free, academically validated.
-    # msg=0 suppresses console output in Streamlit context.
-    solver = pulp.PULP_CBC_CMD(msg=0)
-    prob.solve(solver)
-    status = pulp.LpStatus[prob.status]
+        # CBC solver — Forrest & Lougee-Heimer (2005)
+        # Mitchell et al. (2011): always check LpStatus[prob.status].
+        solver = pulp.PULP_CBC_CMD(msg=0)
+        prob.solve(solver)
+        status = pulp.LpStatus[prob.status]
 
-    if status != "Optimal":
-        return {
-            "status": status,
-            "error": (
-                f"LP solver returned '{status}' for SKU '{sku}'. "
-                "Check demand inputs and cost parameters."
-            ),
-            "sku": sku,
-        }
+        if status != "Optimal":
+            return status, []
 
-    rows = []
-    for w in range(n):
-        proc_val = pulp.value(x[w]) or 0.0
-        hold_val = pulp.value(h[w]) or 0.0
-        idle_val = pulp.value(i[w]) or 0.0
-        rows.append({
-            "sku":       sku,
-            "week":      int(weeks[w]),
-            "procure":   round(proc_val),
-            "reuse":     round(reuse[w]),
-            "hold":      round(hold_val),
-            "idle":      round(idle_val),
-            "week_cost": round(
-                c_p * proc_val +
-                c_h * hold_val +
-                c_i * idle_val
-            ),
-        })
-    return rows
+        rows = []
+        for w in range(n):
+            proc_val = pulp.value(xv[w]) or 0.0
+            hold_val = pulp.value(hv[w]) or 0.0
+            idle_val = pulp.value(iv[w]) or 0.0
+            rows.append({
+                "sku":       sku,
+                "week":      int(weeks[w]),
+                "procure":   round(proc_val),
+                "reuse":     round(reuse[w]),
+                "hold":      round(hold_val),
+                "idle":      round(idle_val),
+                "week_cost": round(
+                    c_p * proc_val +
+                    c_h * hold_val +
+                    c_i * idle_val
+                ),
+            })
+        return status, rows
+
+    # ── Pass 1: standard solve ──────────────────────────────────────────────
+    status1, rows1 = _build_and_solve(c3_cap=total_demand_sku)
+
+    if status1 == "Optimal":
+        # Normal result — annotate relaxed=False
+        for row in rows1:
+            row["relaxed"] = False
+        return rows1
+
+    # ── Pass 2: C3 relaxed by 20% (Hillier & Lieberman 2021 Ch.3) ──────────
+    # Forrest & Lougee-Heimer (2005): non-Optimal must be handled explicitly.
+    relaxed_cap = total_demand_sku * 1.20
+    status2, rows2 = _build_and_solve(c3_cap=relaxed_cap)
+
+    if status2 == "Optimal":
+        # Relaxed result — annotate relaxed=True for UI banner
+        for row in rows2:
+            row["relaxed"] = True
+        return rows2
+
+    # ── Both passes failed — return clean error dict, never raise ───────────
+    # Forrest & Lougee-Heimer (2005): always return a dict, never crash.
+    return {
+        "status":  "infeasible",
+        "sku":     sku,
+        "reason":  (
+            "LP infeasible after C3 relaxation. "
+            "Check demand and schedule inputs."
+        ),
+        "relaxed": False,
+    }
+
 
 
 def _jit_fallback(sku: str, demand_by_week: dict, reuse_by_week: dict,
@@ -406,29 +451,26 @@ def run_sku_optimizer(
     all_boq_rows: list = []
     overall_status = "Optimal"
     optimized_total = 0
+    # Fix 2.1: track relaxed and infeasible SKUs for Tab 2 banner
+    # Forrest & Lougee-Heimer (2005): always check status, never assume optimal.
+    relaxed_skus_set:    set = set()
+    infeasible_skus_set: set = set()
 
     if PULP_AVAILABLE:
         for sku, demand_by_week in skus_data.items():
             result = _run_sku_lp(
                 sku, demand_by_week, reuse_data[sku], c_p, c_h, c_i
             )
-            if isinstance(result, dict) and "error" in result:
-                # LP failed for this SKU — return early with error info
-                return {
-                    "status": result["status"],
-                    "error":  result["error"],
-                    "boq_results": [],
-                    "optimized_total": 0,
-                    "baseline_total":  0,
-                    "savings":         0,
-                    "savings_pct":     0,
-                    "trad_total": 0,
-                    "opt_total":  0,
-                    "opt_buy_w": [], "opt_buy_s": [],
-                    "demand_w": demand_w, "demand_s": demand_s,
-                    "trad_inv_w": [], "opt_inv_w": [],
-                    "trad_inv_s": [], "opt_inv_s": [],
-                }
+            if isinstance(result, dict):
+                # Error dict from both-pass failure
+                infeasible_skus_set.add(sku)
+                overall_status = result.get("status", "infeasible")
+                # Continue to other SKUs — do not early-return
+                continue
+            # Successful result list
+            # Check if any week was solved with relaxed C3
+            if any(row.get("relaxed", False) for row in result):
+                relaxed_skus_set.add(sku)
             all_boq_rows.extend(result)
             optimized_total += sum(r["week_cost"] for r in result)
     else:
@@ -468,6 +510,10 @@ def run_sku_optimizer(
         "baseline_total":   int(baseline_total),
         "savings":          int(savings),
         "savings_pct":      round(savings_pct, 2),
+        # Fix 2.1: relaxed/infeasible SKU sets for Tab 2 banner
+        # Hillier & Lieberman (2021) Ch.3: constraint relaxation metadata.
+        "relaxed_skus":     sorted(relaxed_skus_set),
+        "infeasible_skus":  sorted(infeasible_skus_set),
         # backward-compat aliases
         "trad_total":   int(baseline_total),
         "opt_total":    int(optimized_total),

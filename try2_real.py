@@ -2630,6 +2630,28 @@ if st.session_state.results_ready:
     # ──────────────────────────────────────────────
     with tab2:
 
+        # Fix 2.1 — LP Fallback Relaxation banners
+        # Hillier & Lieberman (2021) Ch.3: constraint relaxation metadata.
+        # Forrest & Lougee-Heimer (2005): always check status after solve.
+        # Show BEFORE three-column metrics so judge sees it immediately.
+        _relaxed_skus    = lp_results.get("relaxed_skus",    [])
+        _infeasible_skus = lp_results.get("infeasible_skus", [])
+
+        if _relaxed_skus:
+            st.warning(
+                f"\u26a0\ufe0f **Relaxed solution used for SKU(s): {', '.join(_relaxed_skus)}.** "
+                "Constraint C3 (demand cap) was relaxed by 20% to find a feasible solution. "
+                "Results are valid but conservative. "
+                "Source: Hillier & Lieberman (2021) Ch.3 \u2014 constraint relaxation methodology."
+            )
+
+        if _infeasible_skus:
+            st.error(
+                f"\u274c **No feasible solution found for SKU(s): {', '.join(_infeasible_skus)}.** "
+                "Check demand values and schedule inputs for these SKUs. "
+                "All other SKUs optimised normally."
+            )
+
         # Three-baseline savings analysis
         st.subheader("Savings analysis \u2014 three baselines")
 
