@@ -416,7 +416,7 @@ def _page3_delivery(story, styles, delivery_df):
 # ─────────────────────────────────────────────────────────────────
 # PAGE 4 — Methodology
 # ─────────────────────────────────────────────────────────────────
-def _page4_methodology(story, styles):
+def _page4_methodology(story, styles, page_num=4):
     s = styles
     story.append(Paragraph("Methodology & Academic References", s["page_title"]))
     story.append(HRFlowable(width="100%", thickness=0.8, color=_ORANGE, spaceAfter=8))
@@ -472,7 +472,7 @@ def _page4_methodology(story, styles):
 
     story.append(Spacer(1, 0.6 * cm))
     story.append(Paragraph(
-        "FormOptiX \u2014 CreaTech '26 \u00b7 L&T \u00b7 Problem Statement 4",
+        f"FormOptiX \u2014 CreaTech '26 \u00b7 L&T \u00b7 Problem Statement 4 \u00b7 Page {page_num} of {page_num}",
         ParagraphStyle(
             "fo_footer",
             fontSize=8, textColor=_GRAY,
@@ -487,50 +487,49 @@ def _page4_methodology(story, styles):
 # Peurifoy & Oberlender (2010) Ch.7 — reuse rate bounds.
 # Ibbs (1997) — savings must hold across perturbations.
 # ─────────────────────────────────────────────────────────────────
-def _page4_sensitivity_table(story, styles, sensitivity_df):
+def _page4_sensitivity(story, styles, sensitivity_df):
     """
-    Append sensitivity analysis section to Page 4.
+    Dedicated Page 4 for Sensitivity Analysis.
     Called only when sensitivity_df is non-None and non-empty.
-
-    Academic basis
-    --------------
-    Hillier & Lieberman (2021) Ch.3 -- sensitivity analysis is the
-    standard OR validation method when field data is unavailable.
-    Ibbs (1997) J.Const.Eng.Mgmt. 123(3) -- savings must remain
-    positive across realistic input perturbations.
-    Peurifoy & Oberlender (2010) Ch.7 -- reuse rate range 30-40%.
     """
     s = styles
     _BLUE_HDR = colors.HexColor("#1565C0")
     _MIN_BG   = colors.HexColor("#FFCDD2")   # worst-case row (red)
     _MAX_BG   = colors.HexColor("#C8E6C9")   # best-case row (green)
+    _BOX_BG   = colors.HexColor("#E3F2FD")
 
-    story.append(Spacer(1, 0.5 * cm))
-    story.append(HRFlowable(width="100%", thickness=0.6, color=_ORANGE, spaceAfter=6))
-    story.append(Paragraph("Sensitivity Analysis -- Savings Robustness", s["ref_title"]))
+    story.append(Paragraph("SENSITIVITY ANALYSIS \u2014 SAVINGS ROBUSTNESS", s["page_title"]))
     story.append(Paragraph(
-        "Hillier & Lieberman (2021) Ch.3: sensitivity analysis is the standard OR "
-        "validation method when field data is unavailable. "
-        "Results are credible only if savings hold across +-50% cost-assumption variance.",
-        s["fo_body" if "fo_body" in styles else "body"],
+        "Hillier & Lieberman (2021) Ch.3: Standard OR validation methodology when field data is unavailable.<br/>"
+        "Savings are credible only if they hold across \u00b150% cost assumptions and \u00b130% schedule variation.",
+        ParagraphStyle(
+            "fo_sens_sub",
+            fontSize=9, leading=13, spaceAfter=12,
+            textColor=_GRAY, fontName="Helvetica",
+        )
     ))
-    story.append(Spacer(1, 0.2 * cm))
 
     # Build table rows
     header = [
         "Scenario",
-        "Optimised\n(Rs Cr)",
-        "Zero Base\n(Rs Cr)",
-        "Exp. Planner\n(Rs Cr)",
+        "Optimised Cost\n(Rs Cr)",
+        "Zero Baseline\n(Rs Cr)",
+        "Exp. Planner Baseline\n(Rs Cr)",
         "Savings vs\nZero %",
-        "Savings vs\nExp %",
+        "Savings vs\nExp. Planner %",
     ]
     rows = [header]
 
     svz_col = "savings_vs_zero_pct"
+    sve_col = "savings_vs_experienced_pct"
+    
     non_nan = sensitivity_df[svz_col].dropna()
     min_val = non_nan.min() if len(non_nan) else None
     max_val = non_nan.max() if len(non_nan) else None
+    
+    non_nan_e = sensitivity_df[sve_col].dropna()
+    min_val_e = non_nan_e.min() if len(non_nan_e) else None
+    max_val_e = non_nan_e.max() if len(non_nan_e) else None
 
     min_row_idx = None
     max_row_idx = None
@@ -563,7 +562,13 @@ def _page4_sensitivity_table(story, styles, sensitivity_df):
         if max_val is not None and svz == max_val:
             max_row_idx = ri
 
-    col_w = [3.5*cm, 2.2*cm, 2.4*cm, 2.6*cm, 2.2*cm, 2.2*cm]
+    # Exact column widths requested: 35%, 13%, 13%, 16%, 11%, 12%
+    # Total width ~17cm (A4 is 21cm, 2cm margins = 17cm printable)
+    tot_w = 17.0 * cm
+    col_w = [
+        0.35 * tot_w, 0.13 * tot_w, 0.13 * tot_w, 
+        0.16 * tot_w, 0.11 * tot_w, 0.12 * tot_w
+    ]
     tbl = Table(rows, colWidths=col_w, repeatRows=1)
 
     ts = [
@@ -574,13 +579,13 @@ def _page4_sensitivity_table(story, styles, sensitivity_df):
         ("ROWBACKGROUND", (0, 1), (-1, -1), [_WHITE, _ALT_BG]),
         ("FONTNAME",      (0, 1), (-1, -1), "Helvetica"),
         ("FONTSIZE",      (0, 1), (-1, -1), 8),
-        ("GRID",          (0, 0), (-1, -1), 0.4, _GRAY),
+        ("GRID",          (0, 0), (-1, -1), 0.5, colors.HexColor("#BDBDBD")),
         ("TOPPADDING",    (0, 0), (-1, -1), 4),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
         ("LEFTPADDING",   (0, 0), (-1, -1), 5),
         ("RIGHTPADDING",  (0, 0), (-1, -1), 5),
         ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
-        ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
+        ("ALIGN",         (1, 0), (-1, -1), "RIGHT"),
         ("ALIGN",         (0, 0), (0, -1),  "LEFT"),
     ]
     if min_row_idx is not None:
@@ -590,25 +595,45 @@ def _page4_sensitivity_table(story, styles, sensitivity_df):
 
     tbl.setStyle(TableStyle(ts))
     story.append(tbl)
-    story.append(Spacer(1, 0.25 * cm))
+    story.append(Spacer(1, 0.6 * cm))
 
     if min_val is not None and max_val is not None:
-        story.append(Paragraph(
-            f"Savings hold between {min_val:.1f}% and {max_val:.1f}% across all 7 scenarios. "
-            "This confirms results are robust, not cherry-picked. "
-            "Red row = worst case; Green row = best case. "
-            "Source: Ibbs (1997); Peurifoy & Oberlender (2010).",
-            s["caption"],
-        ))
+        summary_text = (
+            f"<b>Savings hold between {min_val:.1f}% and {max_val:.1f}% vs zero baseline across all 7 scenarios.</b><br/>"
+            f"<b>Savings hold between {min_val_e:.1f}% and {max_val_e:.1f}% vs experienced planner across all 7 scenarios.</b><br/>"
+            "This confirms FormOptiX results are robust and not cherry-picked.<br/><br/>"
+            "<font color='#DC2626'>Red row = worst case scenario</font> | "
+            "<font color='#16A34A'>Green row = best case scenario</font><br/>"
+            "<font size=7>Source: Ibbs (1997); Peurifoy & Oberlender (2010); Hillier & Lieberman (2021)</font>"
+        )
+        box_p = Paragraph(
+            summary_text,
+            ParagraphStyle("fo_box", fontName="Helvetica", fontSize=9, leading=13, textColor=_BLACK)
+        )
+        box_tbl = Table([[box_p]], colWidths=[17.0*cm])
+        box_tbl.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (0, 0), _BOX_BG),
+            ("BOX", (0, 0), (0, 0), 1, _BLUE_HDR),
+            ("PADDING", (0, 0), (0, 0), 8),
+        ]))
+        story.append(box_tbl)
+        
+    story.append(Spacer(1, 0.6 * cm))
+    story.append(Paragraph(
+        "FormOptiX \u2014 CreaTech '26 \u00b7 L&T \u00b7 Problem Statement 4 \u00b7 Page 4 of 5",
+        ParagraphStyle(
+            "fo_footer",
+            fontSize=8, textColor=_GRAY,
+            fontName="Helvetica-Oblique", alignment=TA_CENTER,
+        ),
+    ))
+    story.append(PageBreak())
 
 
 # ─────────────────────────────────────────────────────────────────
 # PUBLIC FUNCTION
 # ─────────────────────────────────────────────────────────────────
 
-# PDF generation — IS 1200 (1992) BoQ format
-# PMBOK 7th ed. S.4.3: BoQ is a formal procurement document.
-# reportlab: BSD-licensed, no external server needed.
 def generate_boq_pdf(
     boq_df: pd.DataFrame,
     delivery_df: pd.DataFrame,
@@ -618,7 +643,7 @@ def generate_boq_pdf(
     kit_specs: dict = None,
 ) -> bytes:
     """
-    Generate a 4-page PDF Bill of Quantities report.
+    Generate a 5-page PDF Bill of Quantities report.
 
     Parameters
     ----------
@@ -627,7 +652,8 @@ def generate_boq_pdf(
     metrics         : dict with cost/DI keys (see existing docstring).
     project_name    : PDF header subtitle string.
     sensitivity_df  : Optional 7-row DataFrame from compute_sensitivity_analysis.
-                      If None or empty, Page 4 renders exactly as before.
+                      If None or empty, Page 4 shows a placeholder.
+    kit_specs       : Optional dict of formwork kit specifications.
 
     Returns
     -------
@@ -664,16 +690,48 @@ def generate_boq_pdf(
             pass  # never crash PDF on optional section
     _page2_boq(story, s, boq_df)
     _page3_delivery(story, s, delivery_df)
-    _page4_methodology(story, s)
 
-    # Gap 4: append sensitivity table to Page 4 if provided
+    # Page 4: Sensitivity Analysis (dedicated page)
+    has_sensitivity = False
     if sensitivity_df is not None:
         try:
             import pandas as _pd
             if isinstance(sensitivity_df, _pd.DataFrame) and not sensitivity_df.empty:
-                _page4_sensitivity_table(story, s, sensitivity_df)
+                _page4_sensitivity(story, s, sensitivity_df)
+                has_sensitivity = True
         except Exception:
             pass  # never crash the PDF on optional section
+            
+    if not has_sensitivity:
+        # Placeholder if no data
+        story.append(Paragraph("SENSITIVITY ANALYSIS \u2014 SAVINGS ROBUSTNESS", s["page_title"]))
+        
+        box_p = Paragraph(
+            "<b>Sensitivity analysis not available. Run the FormOptiX engine to generate.</b>",
+            ParagraphStyle("fo_box", fontName="Helvetica", fontSize=9, leading=13, textColor=_BLACK)
+        )
+        box_tbl = Table([[box_p]], colWidths=[17.0*cm])
+        box_tbl.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (0, 0), colors.HexColor("#E3F2FD")),
+            ("BOX", (0, 0), (0, 0), 1, colors.HexColor("#1565C0")),
+            ("PADDING", (0, 0), (0, 0), 8),
+        ]))
+        story.append(Spacer(1, 0.5 * cm))
+        story.append(box_tbl)
+        
+        story.append(Spacer(1, 0.6 * cm))
+        story.append(Paragraph(
+            "FormOptiX \u2014 CreaTech '26 \u00b7 L&T \u00b7 Problem Statement 4 \u00b7 Page 4 of 4",
+            ParagraphStyle(
+                "fo_footer",
+                fontSize=8, textColor=_GRAY,
+                fontName="Helvetica-Oblique", alignment=TA_CENTER,
+            ),
+        ))
+        story.append(PageBreak())
+
+    # Page 5 (or 4): Methodology (moved to the very end)
+    _page4_methodology(story, s, page_num=5 if has_sensitivity else 4)
 
     doc.build(story)
     return buffer.getvalue()
