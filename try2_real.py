@@ -237,12 +237,12 @@ st.markdown(f'''
   .stSlider > div > div > div > div {{ background: #E8611A !important; }}
 
   /* Cards */
-  .metric-card {{ background: linear-gradient(135deg, #111827 0%, #1A2235 100%); border: 1px solid #1E2D45; border-radius: 14px; padding: 22px 26px; margin: 6px 0; transition: all 0.25s; }}
+  .metric-card {{ background: linear-gradient(135deg, #111827 0%, #1A2235 100%); border: 1px solid #1E2D45; border-radius: 14px; padding: 20px; margin: 6px 0; transition: all 0.25s; height: 100%; min-height: 165px; display: flex; flex-direction: column; justify-content: space-between; }}
   .metric-card:hover {{ border-color: rgba(232,97,26,0.4); box-shadow: 0 4px 24px rgba(232,97,26,0.1); }}
-  .metric-value {{ font-size: 2.2rem; font-weight: 700; color: #E8611A; font-family: 'JetBrains Mono', monospace; line-height: 1.1; }}
-  .metric-label {{ font-size: 0.76rem; color: #7B8A9E; text-transform: uppercase; letter-spacing: 1.2px; margin-top: 6px; }}
-  .metric-delta-pos {{ color: #22C55E; font-size: 0.83rem; font-weight: 600; }}
-  .metric-delta-neg {{ color: #EF4444; font-size: 0.83rem; font-weight: 600; }}
+  .metric-value {{ font-size: clamp(1.6rem, 2vw, 2.2rem); font-weight: 700; color: #E8611A; font-family: 'JetBrains Mono', monospace; line-height: 1.1; margin-bottom: 8px; }}
+  .metric-label {{ font-size: clamp(0.65rem, 1vw, 0.76rem); color: #7B8A9E; text-transform: uppercase; letter-spacing: 1px; flex-grow: 1; }}
+  .metric-delta-pos {{ color: #22C55E; font-size: clamp(0.7rem, 1vw, 0.83rem); font-weight: 600; margin-top: 8px; }}
+  .metric-delta-neg {{ color: #EF4444; font-size: clamp(0.7rem, 1vw, 0.83rem); font-weight: 600; margin-top: 8px; }}
 
   /* Section headers */
   .section-header {{ background: linear-gradient(90deg, rgba(232,97,26,0.12) 0%, transparent 100%); border-left: 3px solid #E8611A; padding: 10px 18px; border-radius: 0 8px 8px 0; margin: 28px 0 16px 0; font-size: 0.82rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #E8EDF5 !important; }}
@@ -2230,14 +2230,14 @@ if st.session_state.results_ready:
     # ============================================================
     # TABS
     # ============================================================
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    tab1, tab2, tab3, tab4, tab6, tab7, tab5 = st.tabs([
         "🎯 Repetition Analysis",
         "💰 Cost Optimization",
         "📦 Inventory & Forecast",
         "📐 Building Data",
-        "🗺️ Roadmap & Impact",
         "🏗️ Multi-Site",
         "📄 Export & Reports",
+        "🗺️ Roadmap & Impact",
     ])
 
     # ──────────────────────────────────────────────
