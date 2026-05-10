@@ -137,12 +137,13 @@ def compute_design_freeze(df: pd.DataFrame) -> dict:
 # EXTENDED FUNCTIONS — Steps 1, 2, 3
 # ============================================================
 
-# Unstable floor detection — Leys et al. (2013)
-# MAD-based outlier detection: robust to small samples.
-# std-based methods fail when n < 25 (Montgomery, 2019)
-# because outliers inflate std and mask themselves.
-# Threshold: 2.5 × MAD (Leys et al., 2013, recommended).
-# MAD = median(|xi - median(x)|) — resistant to outliers.
+# Unstable floor detection — Montgomery (2019) Ch.6 / Leys et al. (2013)
+# 2.5 x MAD rule: robust outlier threshold for process control charts.
+# MAD = median(|xi - median(x)|) — resistant to outliers (Leys et al. 2013).
+# Montgomery (2019): operator override is the correct resolution for known
+#   special causes (e.g. mechanical floors, refuge floors, lobbies).
+# Leys et al. (2013) J.Exp.Social Psych. 49(4): MAD cannot distinguish
+#   intentional from unintentional deviation — human override is required.
 def identify_unstable_floors(df: pd.DataFrame) -> list:
     """
     Identify floors that are statistical outliers on any geometric feature.
@@ -150,11 +151,17 @@ def identify_unstable_floors(df: pd.DataFrame) -> list:
     For each feature in [slab_area, wall_length, column_count],
     a floor is flagged if: abs(value - median) > 2.5 * MAD
 
+    Floors with floor_override=True are excluded from detection.
+    They represent intentional architectural exceptions (mechanical floors,
+    refuge levels, lobbies) — not design instability.
+
     Parameters
     ----------
     df : pd.DataFrame
         Validated floor dataframe (same object passed to
         compute_design_freeze). Accepts both naming conventions.
+        Optional column: floor_override (bool) — if True, floor is
+        excluded from MAD detection.
 
     Returns
     -------
@@ -162,16 +169,27 @@ def identify_unstable_floors(df: pd.DataFrame) -> list:
         floor_id      (str)   — floor identifier
         feature       (str)   — feature name (canonical)
         value         (float) — actual value for this floor
-        median        (float) — feature median across all floors
+        median        (float) — feature median across non-overridden floors
         deviation_pct (float) — abs(value - median) / median * 100
 
     Academic basis
     --------------
-    Leys et al. (2013): median absolute deviation (MAD) is highly robust
-    to outliers compared to standard deviation. Recommended threshold 2.5.
-    Montgomery (2019) Ch.6: standard methods require n > 25.
+    Leys et al. (2013): MAD is highly robust to outliers. Threshold 2.5.
+    Montgomery (2019) Ch.6: operator override for known special causes.
     """
-    # Resolve column names to canonical form
+    # ── Exclude floors marked as intentional design exceptions ───────────
+    # Montgomery (2019): process control charts always allow operator
+    # override for known special causes.
+    override_ids = set()
+    if "floor_override" in df.columns:
+        override_ids = set(
+            df.loc[df["floor_override"] == True, "floor_id"].tolist()  # noqa: E712
+        )
+        df_active = df[df["floor_override"] == False].copy()  # noqa: E712
+    else:
+        df_active = df.copy()
+
+    # Resolve column names to canonical form (on df_active)
     col_map = {}  # canonical_name -> actual_column_name
     candidates = [
         ("slab_area_m2",  ["slab_area_sqm", "slab_area_m2"]),
@@ -180,33 +198,33 @@ def identify_unstable_floors(df: pd.DataFrame) -> list:
     ]
     for canonical, options in candidates:
         for opt in options:
-            if opt in df.columns:
+            if opt in df_active.columns:
                 col_map[canonical] = opt
                 break
 
     # Detect floor_id column
     id_col = None
     for cand in ["floor_id", "floor", "Floor", "level", "Level"]:
-        if cand in df.columns:
+        if cand in df_active.columns:
             id_col = cand
             break
 
     results = []
     for canonical, actual_col in col_map.items():
-        series = df[actual_col].dropna().astype(float)
+        series = df_active[actual_col].dropna().astype(float)
         median_f = series.median()
         mad_f    = (series - median_f).abs().median()
-        
+
         if mad_f == 0:
             # All values identical — no outliers possible
             continue
-            
+
         threshold = 2.5 * mad_f
-        
+
         for idx, val in series.items():
             if abs(val - median_f) > threshold:
                 floor_label = (
-                    str(df.loc[idx, id_col])
+                    str(df_active.loc[idx, id_col])
                     if id_col is not None
                     else str(idx)
                 )

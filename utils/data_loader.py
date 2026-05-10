@@ -95,4 +95,16 @@ def validate_and_map(df, col_map):
             "staircase_m2 (fixed 25 m2 per floor -- IS 1200 default)"
         )
 
+    # Check G -- floor_override column (optional)
+    # Leys et al. (2013). J.Exp.Social Psych. 49(4) 764-766:
+    #   MAD cannot distinguish intentional from unintentional deviation.
+    #   Human override is the correct resolution for known special causes.
+    # Montgomery (2019). Statistical Quality Control 8th ed. Ch.6:
+    #   Process control charts always allow operator override for special causes.
+    # This is NEVER a hard stop. Files without floor_override continue unchanged.
+    if "floor_override" in df.columns:
+        df["floor_override"] = df["floor_override"].fillna(False).astype(bool)
+    else:
+        df["floor_override"] = False  # default: no floors overridden
+
     return df, auto_generated_cols

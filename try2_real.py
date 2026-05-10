@@ -1905,6 +1905,24 @@ if st.session_state.results_ready:
         # ── STEP 4: Unstable floor table
         st.subheader("Floors Driving Instability")
         _unstable = identify_unstable_floors(df_floors)
+
+        # Fix 1.1 — MAD Override Flag: show info banner for excepted floors
+        # Montgomery (2019) Ch.6: operator override for known special causes.
+        # Leys et al. (2013): MAD cannot distinguish intentional deviation.
+        if "floor_override" in df_floors.columns:
+            _n_overridden = int(df_floors["floor_override"].sum())
+            if _n_overridden > 0:
+                _overridden_ids = df_floors.loc[
+                    df_floors["floor_override"] == True, "floor_id"  # noqa: E712
+                ].tolist()
+                st.info(
+                    f"\u2139\ufe0f {_n_overridden} floor(s) marked as intentional design "
+                    f"exceptions and excluded from instability detection: "
+                    f"{', '.join(str(x) for x in _overridden_ids)}. "
+                    "Source: Montgomery (2019) Ch.6 \u2014 operator override "
+                    "for known special causes."
+                )
+
         if _unstable:
             _df_unstable = pd.DataFrame(_unstable)
             _df_unstable["deviation_pct"] = \
