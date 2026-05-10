@@ -223,6 +223,41 @@ else:
 
 
 # ══════════════════════════════════════════════════════════════════
+# Test 7 — Fix 1.2: DI on df_freeze_active < DI on full df
+# ══════════════════════════════════════════════════════════════════
+print()
+print(SEP)
+print("TEST 7: Fix 1.2 — DI consistency (overridden floors excluded from DI)")
+print(SEP)
+
+from freeze_guard import compute_design_freeze
+
+# Reload demo file
+if os.path.exists(DEMO):
+    df_demo2 = pd.read_excel(DEMO, sheet_name=0)
+    # Rename slab_area_m2 → slab_area_sqm so compute_design_freeze resolves it
+    # (freeze_guard._ALIAS accepts both names)
+
+    # DI on FULL dataset (as it was before Fix 1.2)
+    di_full = compute_design_freeze(df_demo2)["DI"]
+
+    # DI on active-only (overridden = F36-F40 excluded)
+    df_active_demo = df_demo2[df_demo2["floor_override"] == False].copy()  # noqa: E712
+    di_active = compute_design_freeze(df_active_demo)["DI"]
+
+    print(f"  DI (full 40 floors): {di_full:.2f}%")
+    print(f"  DI (35 active floors, F36-F40 excluded): {di_active:.2f}%")
+    assert di_active < di_full, (
+        f"FAIL Test 7: DI on active ({di_active:.2f}%) should be < "
+        f"DI on full ({di_full:.2f}%)"
+    )
+    print(f"PASS: DI drops from {di_full:.2f}% -> {di_active:.2f}% "
+          f"after excluding intentional outlier floors")
+else:
+    print(f"SKIP Test 7: demo file not found at {DEMO}")
+
+
+# ══════════════════════════════════════════════════════════════════
 print()
 print(SEP)
 print("All assertions pass")

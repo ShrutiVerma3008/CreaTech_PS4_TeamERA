@@ -1595,7 +1595,22 @@ if run_btn:
     # ── STEP 3: Design Freeze Guard — runs for ALL modes, before clustering.
     # HALT stops all further processing; procurement on an unstable design is wasteful.
     if FREEZE_GUARD_AVAILABLE:
-        freeze_result = compute_design_freeze(df_floors)
+        # Fix 1.2 — DI Consistency: exclude overridden floors before computing DI.
+        # Montgomery (2019) Ch.6: the same floors excluded from MAD detection
+        # must also be excluded from DI to keep the two outputs consistent.
+        # Leys et al. (2013): intentional deviations inflate CV and mask real instability.
+        _n_override_for_di = 0
+        if "floor_override" in df_floors.columns:
+            _n_override_for_di = int(df_floors["floor_override"].sum())
+            df_freeze_active = df_floors[
+                df_floors["floor_override"] == False  # noqa: E712
+            ].copy()
+        else:
+            df_freeze_active = df_floors.copy()
+        # Store on session_state so compute_change_probability uses the same subset
+        st.session_state["df_freeze_active"] = df_freeze_active
+
+        freeze_result = compute_design_freeze(df_freeze_active)
         st.session_state.freeze_result = freeze_result
         # STEP 5: Store DI values for PDF export even if user jumps to export button directly.
         st.session_state["di_value"]  = freeze_result["DI"]
@@ -1607,28 +1622,38 @@ if run_btn:
         st.session_state["di_history"].append(round(freeze_result["DI"], 2))
         st.session_state["di_history"] = st.session_state["di_history"][-5:]
 
+        # Build a suffix showing how many floors were excluded from DI
+        _override_note = (
+            f" ({_n_override_for_di} intentional floor(s) excluded "
+            "— Montgomery 2019 Ch.6)"
+            if _n_override_for_di > 0 else ""
+        )
+
         print(f"[FormOptiX Freeze Guard] DI={freeze_result['DI']:.2f}% | "
-              f"status={freeze_result['status']}")
+              f"status={freeze_result['status']}"
+              f" | excluded_overrides={_n_override_for_di}")
         if freeze_result["status"] == "HALT":
             st.warning(
                 f"\U0001f512 **Design Freeze: HALT** \u2014 {freeze_result['recommendation']} "
-                f"(DI = {freeze_result['DI']:.1f}%) — "
-                "⚠️ Procurement is NOT recommended at this DI level. Results shown for analysis only."
+                f"(DI = {freeze_result['DI']:.1f}%{_override_note}) \u2014 "
+                "\u26a0\ufe0f Procurement is NOT recommended at this DI level. "
+                "Results shown for analysis only."
             )
             # Do NOT stop — show results so judge can see the freeze analysis
         elif freeze_result["status"] == "WARNING":
             st.warning(
                 f"\u26a0\ufe0f **Design Freeze: WARNING** \u2014 {freeze_result['recommendation']} "
-                f"(DI = {freeze_result['DI']:.1f}%)"
+                f"(DI = {freeze_result['DI']:.1f}%{_override_note})"
             )
         else:
             st.success(
                 f"\u2705 **Design Freeze: SAFE** \u2014 Proceeding to optimization. "
-                f"(DI = {freeze_result['DI']:.1f}%)"
+                f"(DI = {freeze_result['DI']:.1f}%{_override_note})"
             )
     else:
         st.info("\u2139\ufe0f freeze_guard.py not found \u2014 Design Freeze check skipped.")
         st.session_state.freeze_result = None
+        st.session_state["df_freeze_active"] = df_floors.copy()
         st.session_state["di_value"]   = 0.0
         st.session_state["di_status"]  = "N/A"
 
@@ -1976,8 +2001,10 @@ if st.session_state.results_ready:
         # Ibbs (1997): DI bands map to probability of late design change.
         # Montgomery (2019) Ch.6: sustained multi-feature deviation
         # (CV > 10% on ≥2 features) upgrades the estimate one level.
+        # Fix 1.2: use df_freeze_active so CV calculation matches DI gauge.
         st.subheader("Design Change Probability")
-        _prob = compute_change_probability(df_floors, freeze_result["DI"])
+        _df_for_prob = st.session_state.get("df_freeze_active", df_floors)
+        _prob = compute_change_probability(_df_for_prob, freeze_result["DI"])
         _color_map = {"LOW": "#22C55E", "MODERATE": "#F59E0B", "HIGH": "#EF4444"}
         _badge_color = _color_map.get(_prob["probability"], "#7B8A9E")
         st.markdown(
