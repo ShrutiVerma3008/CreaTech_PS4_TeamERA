@@ -164,6 +164,86 @@ def match_supply_to_demand(idle_list: list, demand_list: list) -> list:
 
 
 # ==============================================================
+# FUNCTION 3 — Cross-site data freshness check
+# ==============================================================
+
+# Cross-site data freshness check — Dania et al. (2015), PMI PMBOK 7th ed. S.4.3
+# Dania, A.A., Fulford, R., & Hassanain, M.A. (2015).
+#   Journal of Engineering, Design and Technology, 13(3), 376-399.
+#   -> Cross-site reallocation is only valid when site data is
+#      temporally consistent. Stale data invalidates allocation.
+# PMI. (2021). PMBOK Guide (7th ed.). Project Management Institute.
+#   Section 4.3 -> Procurement decisions require version-controlled
+#   inputs; stale data invalidates cross-site allocation decisions.
+import datetime as _dt
+
+
+def check_site_data_freshness(
+    ts_a,
+    ts_b,
+    threshold_minutes: int = 30,
+) -> dict:
+    """
+    Check whether two site datasets were loaded within an acceptable
+    time window of each other.
+
+    Cross-site reallocation requires temporally consistent inputs.
+    If Site A data and Site B data were loaded more than
+    threshold_minutes apart, the match may be based on stale figures.
+
+    Parameters
+    ----------
+    ts_a               : datetime.datetime or None — when Site A was loaded
+    ts_b               : datetime.datetime or None — when Site B was loaded
+    threshold_minutes  : int — max acceptable gap in minutes (default 30)
+
+    Returns
+    -------
+    dict with keys:
+        is_stale           : bool   — True if gap > threshold_minutes
+        delta_minutes      : float  — abs gap, rounded to 1 dp (0.0 if either None)
+        threshold_minutes  : int    — the threshold used
+        site_a_loaded_at   : str    — ISO timestamp or "unknown"
+        site_b_loaded_at   : str    — ISO timestamp or "unknown"
+
+    Never raises. Returns is_stale=False when either timestamp is None
+    (cannot determine staleness without both timestamps).
+
+    Academic basis
+    --------------
+    Dania et al. (2015): cross-site reallocation only valid when
+      site data is temporally consistent.
+    PMI PMBOK 7th ed. S.4.3 (2021): procurement decisions require
+      version-controlled inputs; stale data invalidates allocation.
+    """
+    str_a = ts_a.isoformat() if ts_a is not None else "unknown"
+    str_b = ts_b.isoformat() if ts_b is not None else "unknown"
+
+    # Guard: cannot determine staleness without both timestamps
+    if ts_a is None or ts_b is None:
+        return {
+            "is_stale":          False,
+            "delta_minutes":     0.0,
+            "threshold_minutes": threshold_minutes,
+            "site_a_loaded_at":  str_a,
+            "site_b_loaded_at":  str_b,
+        }
+
+    delta_minutes = round(
+        abs((ts_a - ts_b).total_seconds()) / 60.0, 1
+    )
+    is_stale = delta_minutes > threshold_minutes
+
+    return {
+        "is_stale":          is_stale,
+        "delta_minutes":     delta_minutes,
+        "threshold_minutes": threshold_minutes,
+        "site_a_loaded_at":  str_a,
+        "site_b_loaded_at":  str_b,
+    }
+
+
+# ==============================================================
 # STEP 5 — Standalone test
 # ==============================================================
 

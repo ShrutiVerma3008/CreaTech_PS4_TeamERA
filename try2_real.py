@@ -3424,8 +3424,16 @@ if st.session_state.results_ready:
             )
             if _uploaded:
                 import json as _json_ms
+                import datetime as _dt_ms
                 _boq_data = _json_ms.loads(_uploaded.read())
                 site_boq_data[_site_label] = _boq_data
+                # Fix 2.2 -- capture upload timestamp for freshness check
+                # PMI PMBOK 7th ed. S.4.3 (2021): procurement decisions
+                # require version-controlled inputs.
+                # Dania et al. (2015): cross-site allocation only valid
+                # when site data is temporally consistent.
+                st.session_state[f"site_{_idx}_loaded_at"] = _dt_ms.datetime.now()
+                st.session_state[f"site_{_idx}_label"]     = _site_label
 
         # ── Steps 2 & 3: Matching (only when 2+ sites loaded) ───────
         if len(site_boq_data) >= 2:
@@ -3434,7 +3442,9 @@ if st.session_state.results_ready:
             from core.cross_site import (
                 collect_idle_panels,
                 match_supply_to_demand,
+                check_site_data_freshness,
             )
+            import datetime as _dt_cs
 
             # Collect idle panels and demand from all sites
             _all_idle   = []
@@ -3462,6 +3472,33 @@ if st.session_state.results_ready:
                 )
             else:
                 st.info("No idle panels found across uploaded sites.")
+
+            # Fix 2.2 -- Freshness check before matching
+            # Dania et al. (2015): cross-site reallocation only valid
+            # when site data is temporally consistent.
+            # PMI PMBOK 7th ed. S.4.3 (2021): stale data invalidates
+            # cross-site allocation decisions.
+            _ts_0 = st.session_state.get("site_0_loaded_at")
+            _ts_1 = st.session_state.get("site_1_loaded_at")
+            if _ts_0 is not None and _ts_1 is not None:
+                _freshness = check_site_data_freshness(_ts_0, _ts_1, threshold_minutes=30)
+                if _freshness["is_stale"]:
+                    st.warning(
+                        f"⚠️ **Site data may be out of sync.** "
+                        f"Site A loaded {_freshness['site_a_loaded_at']}, "
+                        f"Site B loaded {_freshness['site_b_loaded_at']} "
+                        f"({_freshness['delta_minutes']} min apart). "
+                        "Re-upload both files in the same session for accurate "
+                        "cross-site allocation. "
+                        "Source: Dania et al. (2015) — cross-site reallocation "
+                        "requires temporally consistent inputs."
+                    )
+                else:
+                    st.success(
+                        f"✅ Both site files are in sync "
+                        f"({_freshness['delta_minutes']} min apart — "
+                        f"within {_freshness['threshold_minutes']} min threshold)."
+                    )
 
             # Run greedy match
             _c_p_cross = float(st.session_state.get("c_p", 15000))
