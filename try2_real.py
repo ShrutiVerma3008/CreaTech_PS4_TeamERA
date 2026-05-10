@@ -1842,6 +1842,12 @@ if run_btn:
     # Derive totals from lp_results here (before the results_ready block below)
     baseline_total  = lp_results.get("baseline_total", lp_results.get("trad_total", 0))
     optimized_total = lp_results.get("optimized_total", lp_results.get("opt_total", 0))
+    
+    st.session_state["optimized_total"] = float(optimized_total)
+    st.session_state["baseline_total"]  = float(baseline_total)
+    st.session_state["savings"]         = float(lp_results.get("savings", 0))
+    st.session_state["savings_pct"]     = float(lp_results.get("savings_pct", 0))
+    
     _three_bl = compute_three_baselines(
         zero_baseline=float(baseline_total),
         optimized_total=float(optimized_total),
@@ -3225,10 +3231,10 @@ if st.session_state.results_ready:
             st.markdown("---")
             if st.button("\U0001f4c4 Export BoQ as PDF", key="export_boq_pdf_btn"):
                 _metrics = {
-                    "optimized_cr":      optimized_total / 1e7,
-                    "baseline_cr":       baseline_total / 1e7,
-                    "savings_cr":        (baseline_total - optimized_total) / 1e7,
-                    "savings_pct":       saving_pct,
+                    "optimized_cr":      st.session_state.get("optimized_total", 0) / 1e7,
+                    "baseline_cr":       st.session_state.get("baseline_total", 0) / 1e7,
+                    "savings_cr":        st.session_state.get("savings", 0) / 1e7,
+                    "savings_pct":       st.session_state.get("savings_pct", 0),
                     "overall_reuse_rate": st.session_state.get("overall_reuse_rate", 0),
                     "di_value":          st.session_state.get("di_value", 0),
                     "di_status":         st.session_state.get("di_status", "N/A"),
