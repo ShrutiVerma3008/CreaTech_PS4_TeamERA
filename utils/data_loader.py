@@ -132,8 +132,8 @@ def validate_and_map(df, col_map, stripping_standard: str = "IS456"):
         st.error(f"Missing required columns after auto-generation: {still_missing}. Please map them.")
         st.stop()
 
-    # Check A — No nulls in any of the 8 columns
-    null_mask = df[required_cols].isnull().any(axis=1)
+    # Check A — No nulls in any of the 8 columns (including strip_week now guaranteed)
+    null_mask = df[required_cols_check].isnull().any(axis=1)
     if null_mask.any():
         bad_rows = df[null_mask].index.tolist()
         st.error(f"Missing values found in rows: {bad_rows}. Fill these before uploading.")
