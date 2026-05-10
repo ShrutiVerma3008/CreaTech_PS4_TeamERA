@@ -463,6 +463,14 @@ def _page4_methodology(story, styles, page_num=4):
             "Section 4.3: BoQ is a formal project procurement document — "
             "must be signable, dateable, and transferable to a vendor.",
         ),
+        (
+            "Stochastic Optimisation — Phase 2 Reference",
+            "Birge, J.R., & Louveaux, F. (2011). Introduction to Stochastic Programming "
+            "(2nd ed.). Springer. "
+            "USE: Two-stage stochastic LP framework for Phase 2 upgrade — models design "
+            "change probability as scenario weights feeding directly from the Design Change "
+            "Probability Indicator (Gap 3).",
+        ),
     ]
 
     for ref_title, ref_text in refs:
