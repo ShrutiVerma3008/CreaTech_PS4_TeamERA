@@ -175,113 +175,83 @@ These numbers are computed on the **40-floor synthetic tower demo dataset** incl
 <tr>
 <td width="33%" valign="top">
 
-### 🧠 Pillar 1
-### Repetition Intelligence
+### 🧠 Pillar 1 — Repetition Intelligence
 
-DBSCAN clusters floors by geometric similarity — slab area, wall length, column count. But geometry alone is not enough.
+DBSCAN discovers floor families automatically without pre-specifying cluster count. Unique floors (lobby, refuge, terrace) are correctly marked noise — not forced into a reuse group.
 
-**Why DBSCAN and not k-means?** DBSCAN does not require pre-specifying cluster count, and correctly classifies unique floors (Basement, Terrace, Refuge) as noise rather than forcing them into a reuse family.
+IS 456:2000 strip times feed directly into the reuse eligibility filter. A floor that is geometrically identical but schedule-incompatible is excluded from reuse pairing.
 
-**The physical constraint:** panels can only be reused if the source floor is stripped and transported before the target floor needs them.
+Floor override flag lets intentional outliers bypass instability detection without affecting clustering or the LP.
 
-```
-eligible[i][j] = True
-  if strip_week[i]
-   + transport_weeks
-  ≤ week_start[j]
-```
-
-Strip weeks computed from **IS 456:2000 Cl.11.3** minimum cure times — SKU-specific, not flat estimates. Sidebar toggle to ACI 347R-14 for international comparison.
-
-**Floor Override flag:** Intentional architectural exceptions (lobby, mechanical floor) can be tagged `floor_override=True` — excluded from instability detection without breaking clustering. *(Montgomery, 2019 Ch.6)*
-
-Clusters with **zero valid reuse pairs** are reclassified as noise and sent for custom order.
-
-Reuse coefficient per cluster:
-```
-ρ_k = valid_pairs / total_pairs
-```
-Industry benchmark: **60–80%** *(Peurifoy & Oberlender, 2010)*
-
-**Kit Specification output:** Each cluster produces exact panel counts per SKU — `ceil(avg_area / coverage_ratio)` + 10% buffer.
+> **60–80%** reuse benchmark · Peurifoy & Oberlender (2010)
 
 </td>
 <td width="33%" valign="top">
 
-### ⚙️ Pillar 2
-### LP BoQ Optimiser
+### ⚙️ Pillar 2 — LP BoQ Optimiser
 
-Separate LP subproblem per panel SKU (ALU-600, ALU-450, H20-beam). Decision variables per week:
+Separate LP subproblem per SKU minimises total procurement + holding + idle cost over the full schedule horizon. CBC solver, no hardcoded cost values.
 
-```
-x_w = panels procured fresh
-h_w = panels held in inventory
-i_w = panels idle on site
+Two-pass fallback: non-optimal → C3 relaxed by 20% → retry. Both fail → clean error dict, never a crash.
 
-Minimise:
-  Σ( c_p·x_w + c_h·h_w + c_i·i_w )
+Savings compared against three baselines (zero reuse / experienced planner / FormOptiX LP) so claims are conservative and auditable.
 
-Subject to:
-  C1: x_w + reuse_w + h_(w-1) ≥ D_w
-  C2: h_w = x_w + reuse_w
-          + h_(w-1) − D_w
-  C3: x_w ≤ total_demand_sku
-```
-
-**Two-pass fallback:** If CBC returns non-Optimal, a second pass relaxes C3 by 20%. If both passes fail, a clean error dict is returned — the app never crashes. *(Hillier & Lieberman, 2021)*
-
-All cost parameters (`c_p`, `c_h`, `c_i`) are **sidebar inputs** — nothing hardcoded.
-
-**Three-baseline comparison (demand-based):**
-
-| Baseline | Formula | Source |
-|---|---|---|
-| Zero-reuse | `Σ c_p × D_w` | Internal |
-| Experienced planner | `total_demand × 0.65 × c_p` (35% reuse) | Peurifoy & Oberlender (2010) |
-| FormOptiX LP | CBC solver output | This system |
-
-**Sensitivity Analysis (7 scenarios):** Savings validated across c_p ±50%, reuse ±20%, schedule ±30%. Savings hold between 63.5% and 86.1% across all scenarios — OR robustness criterion satisfied. *(Hillier & Lieberman, 2021 Ch.3)*
+> **15.30%** savings on demo · **63.5–86.1%** sensitivity range
 
 </td>
 <td width="33%" valign="top">
 
-### 🛡️ Pillar 3
-### Design Freeze Guard
+### 🛡️ Pillar 3 — Design Freeze Guard
 
-Uses **Median Absolute Deviation (MAD)** — not standard deviation — for outlier detection. Standard deviation is not robust in small samples (n < 25); outliers inflate std and mask themselves *(Leys et al., 2013)*.
+MAD replaces standard deviation — in samples under 25 floors, std inflates when outliers are present and masks itself. MAD uses the median, which is stable.
 
-```
-median_f = median(feature)
-mad_f    = median(|x - median_f|)
-threshold = 2.5 × mad_f
+DI is computed once at upload and cached. The LP always runs regardless of DI status — the guard is an advisory signal, not a hard block.
 
-Unstable if:
-  |value − median_f| > threshold
-```
+Predictive probability indicator maps DI to LOW / MODERATE / HIGH and upgrades one level when ≥ 2 features simultaneously exceed CV 10%.
 
-Design Instability Index:
-```
-DI = (CV_slab + CV_wall + CV_col) / 3
-
-DI ≤ 10%       → SAFE
-10% < DI ≤ 15% → WARNING
-DI > 15%       → HALT (advisory)
-```
-
-**Decoupled from LP:** Freeze guard is computed once at upload and cached in session state. The LP always runs regardless of DI status — the guard is an advisory signal, not a hard block. *(Ibbs, 1997; Montgomery, 2019)*
-
-**Predictive Design Change Risk:** Maps DI to probability band — LOW (15%) / MODERATE (45%) / HIGH (78%). Upgraded one level when ≥ 2 features simultaneously exceed CV 10%. *(Ibbs, 1997; Montgomery, 2019 Ch.6)*
-
-**Consistent filtering:** Every DI number shown (gauge, CV table, change probability) is computed from the same `df_freeze_active` — overridden floors excluded everywhere, not just in the unstable floor table.
-
-15% threshold calibrated from Ibbs (1997): projects exceeding 15% variance show **3× higher rework costs**.
+> **15%** HALT threshold · **78%** late-change probability · Ibbs (1997)
 
 </td>
 </tr>
 </table>
-
 ---
+<table>
+<tr><td width="50%" valign="top">
 
+**01 · Physical reuse filter on DBSCAN**
+IS 456:2000 strip time + transport lead time applied before a pair is declared valid. Schedule-incompatible floors excluded even if geometrically identical. `IS 456:2000 Cl.11.3`
+
+**02 · MAD-based procurement gate**
+No existing tool uses MAD for design instability. Std is unreliable for n < 25 floors — outliers inflate it and mask themselves. `Leys et al. (2013)`
+
+**03 · Three-baseline savings comparison**
+Zero reuse + experienced planner (35%) + FormOptiX LP. Conservative mid-point of 30–40% manual range — claims cannot be dismissed as cherry-picked. `Dania et al. (2015)`
+
+**04 · Kit specification panel counts**
+Each cluster converted to exact panel count per SKU via area ÷ coverage ratio + 10% buffer. No other tool derives procurement-ready numbers from cluster geometry. `Peurifoy & Oberlender (2010)`
+
+**05 · Design change probability indicator**
+DI mapped to probability bands (15% / 45% / 78%). Upgraded one level when ≥ 2 features exceed CV 10% simultaneously. Diagnostic → predictive. `Ibbs (1997) · Montgomery (2019)`
+
+</td><td width="50%" valign="top">
+
+**06 · Sensitivity analysis — OR validation**
+Full LP re-run across 7 scenarios (c_p ±50%, reuse ±20%, schedule ±30%). Savings hold 63.5–86.1% — satisfying Hillier & Lieberman (2021) Ch.3 criterion without field data. `Hillier & Lieberman (2021)`
+
+**07 · Floor override flag**
+Intentional architectural exceptions tagged `floor_override=True`. Excluded from DI computation everywhere — not just the unstable floor table. Resolves the MAD outlier paradox. `Montgomery (2019) Ch.6`
+
+**08 · LP two-pass fallback**
+Non-optimal → C3 relaxed 20% → retry. Both fail → clean infeasible dict. App never crashes or hangs on a real dataset. `Hillier & Lieberman (2021)`
+
+**09 · IS 456:2000 as direct LP input**
+Strip weeks computed from Indian Standard cure times per SKU, fed into the LP reuse vector. Legally grounded for Indian construction. Sidebar toggle to ACI 347R-14. `IS 456:2000 Cl.11.3`
+
+**10 · Cross-site data freshness check**
+Upload timestamps compared before matching. > 30 min apart → staleness warning with exact timestamps. Allocation never runs on mismatched site data. `Dania et al. (2015) · PMI PMBOK 7th`
+
+</td></tr>
+</table>
 ## 🆕 What's New — Novel Contributions
 
 **1. Physical reuse eligibility filter on DBSCAN**
