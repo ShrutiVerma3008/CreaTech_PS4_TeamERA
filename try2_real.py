@@ -3555,7 +3555,7 @@ if st.session_state.results_ready:
         st.markdown("<div class='section-header'>🆕 Novelty Features</div>", unsafe_allow_html=True)
         nov1, nov2, nov3 = st.columns(3)
         novelties = [
-            (nov1, "\ud83d\udd12 Procurement Volatility Guard", TEAL,
+            (nov1, "🔒 Procurement Volatility Guard", TEAL,
              "Monitors drawing revision cycles. Flags if Procurement Risk Index exceeds threshold between design iterations. "
              "Delays procurement until drawing set stability is confirmed. Converts revision risk into a quantified procurement trigger."),
             (nov2, "📡 Panel Digital Twin", ORANGE,
