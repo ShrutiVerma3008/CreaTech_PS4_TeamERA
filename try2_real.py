@@ -1843,17 +1843,36 @@ if run_btn:
         st.session_state["df_floors_is456"] = df_floors
 
     # ── Ensure panel counts exist for LP reuse matrix ───────────────────────
+    # Reuse vectors MUST match _aggregate_schedule_from_floors demand formula:
+    #   wall demand = wall_length_m / 8.5  (Peurifoy & Oberlender 2010, Ch.7)
+    #   slab demand = slab_area_sqm / 12.0
+    #   col  demand = column_count  (actual panels per floor/lift)
+    # Bug: area/18 << column_count => LP sees no reuse => buys fresh every week.
     if "wall_panels" not in df_floors.columns:
         _area_col = "slab_area_sqm" if "slab_area_sqm" in df_floors.columns else "slab_area_m2"
+        _col_col  = (
+            "column_count" if "column_count" in df_floors.columns else
+            "col_count"    if "col_count"    in df_floors.columns else None
+        )
         if _area_col in df_floors.columns:
             _area = df_floors[_area_col].fillna(0)
-            df_floors["wall_panels"] = (_area / 8.5).astype(int)
+            # wall: wall_length_m / 8.5 matches schedule formula
+            _wall = (
+                df_floors["wall_length_m"].fillna(0)
+                if "wall_length_m" in df_floors.columns else _area
+            )
+            df_floors["wall_panels"] = (_wall / 8.5).astype(int)
             df_floors["slab_panels"] = (_area / 12.0).astype(int)
-            df_floors["col_panels"]  = (_area / 18.0).astype(int)
+            # col_panels = actual column_count so LP reuse matches schedule demand
+            if _col_col:
+                df_floors["col_panels"] = df_floors[_col_col].fillna(0).astype(int)
+            else:
+                df_floors["col_panels"] = (_area / 18.0).astype(int)
         else:
             df_floors["wall_panels"] = 0
             df_floors["slab_panels"] = 0
             df_floors["col_panels"]  = 0
+
 
     # ── Clustering
     with st.spinner("\U0001f9e0  Running DBSCAN Repetition Clustering..."):
