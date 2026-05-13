@@ -1,8 +1,8 @@
 """
-freeze_guard.py — Design Freeze Intelligence for FormOptiX
-===========================================================
-Computes the Design Instability Index (DI) from floor geometry
-and returns an actionable freeze status.
+freeze_guard.py — Procurement Volatility Guard for FormOptiX
+============================================================
+Computes the Procurement Risk Index (PRI) from floor geometry
+and returns an actionable procurement status.
 
 This module is intentionally independent of Streamlit and PuLP
 so it can be unit-tested without spinning up the full app.
@@ -23,7 +23,7 @@ identify_unstable_floors(df) -> list
     Keys: floor_id, feature, value, mean, deviation_pct
 
 estimate_rework_cost(unstable_floors, df, c_p) -> dict
-    Estimates cost impact of ordering before design is frozen.
+    Estimates cost exposure if drawings are revised after ordering.
     Keys: panels_at_risk, rework_cost_order_now,
           savings_if_wait_2w, recommendation_weeks
 
@@ -35,9 +35,9 @@ get_procurement_recommendation(di_value, clusters,
 
 Status thresholds
 -----------------
-  DI <= 10%          -> SAFE    : Safe to procure all clusters.
-  10% < DI <= 15%    -> WARNING : Procure stable clusters only. Hold unstable floors.
-  DI > 15%           -> HALT    : Do not procure. Freeze drawings first.
+  DI <= 10%          -> SAFE    : Drawing set is stable. Proceed with full procurement.
+  10% < DI <= 15%    -> WARNING : Procure low-risk clusters now. Hold high-revision-risk floors pending drawing confirmation.
+  DI > 15%           -> HALT    : High revision risk. Verify drawings are final before committing procurement budget.
 """
 
 import pandas as pd
@@ -60,9 +60,9 @@ _THRESHOLDS = {
 }
 
 _RECOMMENDATIONS = {
-    "SAFE":    "Safe to procure all clusters.",
-    "WARNING": "Procure stable clusters only. Hold unstable floors.",
-    "HALT":    "Do not procure. Freeze drawings first.",
+    "SAFE":    "Drawing set is stable. Proceed with full procurement.",
+    "WARNING": "Procure low-risk clusters now. Hold high-revision-risk floors pending drawing confirmation.",
+    "HALT":    "High revision risk. Verify drawings are final before committing procurement budget.",
 }
 
 
@@ -76,7 +76,7 @@ def _cv(series: pd.Series) -> float:
 
 def compute_design_freeze(df: pd.DataFrame) -> dict:
     """
-    Compute the Design Instability Index (DI) from floor geometry.
+    Compute the Procurement Risk Index (PRI) from floor geometry.
 
     Parameters
     ----------
@@ -153,7 +153,7 @@ def identify_unstable_floors(df: pd.DataFrame) -> list:
 
     Floors with floor_override=True are excluded from detection.
     They represent intentional architectural exceptions (mechanical floors,
-    refuge levels, lobbies) — not design instability.
+    refuge levels, lobbies) — not procurement risk deviation.
 
     Parameters
     ----------
@@ -253,7 +253,7 @@ def estimate_rework_cost(
     c_p: float,
 ) -> dict:
     """
-    Estimate the cost impact of ordering panels before design freeze.
+    Estimate the cost exposure if drawings are revised after ordering.
 
     Parameters
     ----------
@@ -265,14 +265,14 @@ def estimate_rework_cost(
     -------
     dict with keys:
         panels_at_risk          (int)   — proxy panel count at risk
-        rework_cost_order_now   (float) — Rs, if ordered now
-        savings_if_wait_2w      (float) — Rs, if deferred 2 weeks
+        rework_cost_order_now   (float) — Rs, cost exposure if ordered now
+        savings_if_wait_2w      (float) — Rs, potential saving by confirming drawings first
         recommendation_weeks    (int)   — always 2
 
     Academic basis
     --------------
     Ibbs (1997): ~30% cost overrun on procurement done before
-    design freeze (rework_cost = panels_at_risk * c_p * 0.30).
+    drawings are confirmed-for-construction (rework_cost = panels_at_risk * c_p * 0.30).
     Conservative 80% avoidance if deferred 2 weeks.
     """
     if not unstable_floors:
@@ -385,8 +385,9 @@ def get_procurement_recommendation(
     else:
         action = "HALT ALL PROCUREMENT"
         detail = (
-            "Do not place any orders. Freeze drawings for all floors. "
-            "Review in 2 weeks. Ibbs (1997): DI > 15% causes 3x "
+            "Do not place any orders. Verify all drawings are "
+            "issued-for-construction before placing orders. "
+            "Review in 2 weeks. Ibbs (1997): PRI > 15% causes 3x "
             "rework cost on all affected work packages."
         )
 
@@ -403,7 +404,7 @@ def predict_design_change_risk(di_history: list) -> dict:
     Parameters
     ----------
     di_history : list of float
-        DI values from successive uploads, most recent LAST.
+        PRI values from successive uploads, most recent LAST.
         Length 0-5. Values are percentages (e.g. 12.5 not 0.125).
 
     Returns
@@ -470,21 +471,21 @@ def predict_design_change_risk(di_history: list) -> dict:
     if above >= 2 and trend > 0:
         risk = "HIGH"
         msg  = (
-            f"Design change probability HIGH. DI exceeded procurement "
+            f"Drawing Revision probability HIGH. PRI exceeded procurement "
             f"risk threshold in {above} of {total} measurements and "
             f"is trending upward (+{trend:.1f}pp). Defer procurement "
-            f"of unstable clusters. (Ibbs 1997)"
+            f"of high-revision-risk clusters. (Ibbs 1997)"
         )
     elif above >= 1 or trend > 5.0:
         risk = "MEDIUM"
         msg  = (
-            "Design change probability MEDIUM. Monitor closely. "
+            "Drawing Revision probability MEDIUM. Monitor closely. "
             "Procurement of stable clusters may proceed."
         )
     else:
         risk = "LOW"
         msg  = (
-            "Design change probability LOW. Design appears stable. "
+            "Drawing Revision probability LOW. Drawing set appears stable. "
             "Full procurement recommended."
         )
 
@@ -526,7 +527,7 @@ def compute_change_probability(df: pd.DataFrame, di_value: float) -> dict:
     """
     Design Change Probability Indicator.
 
-    Maps the Design Instability Index (DI) to a probability band and
+    Maps the Procurement Risk Index (PRI) to a probability band and
     upgrades the estimate when ≥ 2 of 3 geometric features show
     simultaneous CV > 10% (Montgomery, 2019 — sustained multi-feature
     deviation signals process shift).

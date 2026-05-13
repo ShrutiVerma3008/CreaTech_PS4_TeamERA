@@ -931,7 +931,7 @@ def compute_data_quality(df_floors, df_schedule=None):
     Return (score 0-100, list_of_warnings).
 
     Checks: nulls, duplicate IDs, schedule consistency.
-    NOTE: Design Instability Index (DI) is NOT computed here.
+    NOTE: Procurement Risk Index (PRI) is NOT computed here.
     Call compute_design_freeze(df_floors) separately for freeze status.
     These are two different concerns and must stay separated.
     """
@@ -1352,7 +1352,7 @@ total procurement &amp; holding cost over the 52-week horizon.
 <tr>
 <td style='padding:10px 12px 10px 0; vertical-align:top;
 border-bottom:1px solid #1E2D45;'>
-<b style='color:#EF4444;'>Design Freeze Guard<br>(15% DI Threshold)</b>
+<b style='color:#EF4444;'>Procurement Volatility Guard<br>(15% PRI Threshold)</b>
 </td>
 <td style='padding:10px 0; vertical-align:top;
 border-bottom:1px solid #1E2D45; color:#E8EDF5;'>
@@ -1468,14 +1468,72 @@ if mode == "Real Site Data":
             ]
             has_all_exact = all(c in df_raw.columns for c in required_cols)
             
+            # ── Smart bridge/pier column auto-detection ──────────────────────
+            # Bridge datasets (like Bakkal bridge) use: Pier ID, Lift Start Week,
+            # Lift End Week, Formwork Area (m²), Strip Week (IS456), Panel SKU.
+            # Map these to FormOptiX canonical names automatically.
+            _BRIDGE_ALIASES = {
+                "floor_id":     ["Pier ID", "PierID", "pier_id", "Part ID", "Element ID",
+                                 "ComponentID", "ID", "floor_id"],
+                "week_start":   ["Lift Start Week", "LiftStartWeek", "Start Week",
+                                 "week_start", "WeekStart"],
+                "week_end":     ["Lift End Week", "LiftEndWeek", "End Week",
+                                 "week_end", "WeekEnd"],
+                "strip_week":   ["Strip Week (IS456)", "Strip Week (ACI)", "Strip Week",
+                                 "StripWeek", "strip_week"],
+                "slab_area_m2": ["Formwork Area (m\u00b2)", "Formwork Area (m2)",
+                                 "Formwork Area (m³)", "Formwork Area",
+                                 "slab_area_m2", "slab_area_sqm", "Area (m2)"],
+                "wall_length_m":["Wall Length (m)", "wall_length_m", "WallLength",
+                                 "Perimeter (m)", "Circumference (m)"],
+                "col_count":    ["col_count", "column_count", "Panels Required",
+                                 "PanelsRequired", "Columns", "col_count"],
+                "panel_type":   ["Panel SKU", "PanelSKU", "panel_type", "SKU",
+                                 "Formwork Type", "FormworkType", "panel_type"],
+            }
+            def _auto_map(raw_cols, aliases_dict):
+                """Return best auto-match for each required field, or '--- Not in file ---'."""
+                result = {}
+                for req, candidates in aliases_dict.items():
+                    matched = next((c for c in candidates if c in raw_cols),
+                                   "--- Not in file ---")
+                    result[req] = matched
+                return result
+
             col_map = {}
             if not has_all_exact:
-                with st.expander("Map your column names", expanded=True):
+                auto_guess = _auto_map(df_raw.columns.tolist(), _BRIDGE_ALIASES)
+                n_guessed  = sum(1 for v in auto_guess.values() if v != "--- Not in file ---")
+                with st.expander(
+                    f"\U0001f9e9 Map your column names  ({n_guessed}/{len(required_cols)} auto-detected)",
+                    expanded=True
+                ):
+                    st.caption(
+                        "FormOptiX detected common bridge/pier column names and pre-filled "
+                        "the mapping below. Adjust any that are wrong, then click "
+                        "**Run FormOptiX Engine**."
+                    )
+                    st.caption(
+                        "\u2139\ufe0f **wall\\_length\\_m** is optional for bridge datasets — if left "
+                        "unmapped, it will be auto-derived from formwork area "
+                        "(perimeter \u2248 2\u221aArea)."
+                    )
                     options = ["--- Not in file ---"] + df_raw.columns.tolist()
                     for req in required_cols:
-                        col_map[req] = st.selectbox(f"Which column is {req}?", options=options)
+                        # Pre-select the auto-guessed value in the dropdown
+                        guess  = auto_guess.get(req, "--- Not in file ---")
+                        idx    = options.index(guess) if guess in options else 0
+                        # Mark wall_length_m as optional
+                        label  = (
+                            f"Which column is **{req}**? *(optional — auto-derived if blank)*"
+                            if req == "wall_length_m"
+                            else f"Which column is **{req}**?"
+                        )
+                        col_map[req] = st.selectbox(
+                            label, options=options, index=idx, key=f"colmap_{req}"
+                        )
             else:
-                st.success("Column names matched automatically.")
+                st.success("\u2705 Column names matched automatically.")
                 col_map = {c: c for c in required_cols}
                 
             valid_map = {v: k for k, v in col_map.items() if v and v != "--- Not in file ---"}
@@ -1710,24 +1768,24 @@ if run_btn:
               f" | recomputed={_freeze_needs_recompute}")
         if freeze_result["status"] == "HALT":
             st.warning(
-                f"\U0001f512 **Design Freeze: HALT** \u2014 {freeze_result['recommendation']} "
-                f"(DI = {freeze_result['DI']:.1f}%{_override_note}) \u2014 "
-                "\u26a0\ufe0f Procurement is NOT recommended at this DI level. "
+                f"\U0001f512 **Procurement Volatility Guard: HALT** \u2014 {freeze_result['recommendation']} "
+                f"(PRI = {freeze_result['DI']:.1f}%{_override_note}) \u2014 "
+                "\u26a0\ufe0f Procurement is NOT recommended at this PRI level. "
                 "Results shown for analysis only."
             )
-            # Do NOT stop — show results so judge can see the freeze analysis
+            # Do NOT stop — show results so judge can see the analysis
         elif freeze_result["status"] == "WARNING":
             st.warning(
-                f"\u26a0\ufe0f **Design Freeze: WARNING** \u2014 {freeze_result['recommendation']} "
-                f"(DI = {freeze_result['DI']:.1f}%{_override_note})"
+                f"\u26a0\ufe0f **Procurement Volatility Guard: WARNING** \u2014 {freeze_result['recommendation']} "
+                f"(PRI = {freeze_result['DI']:.1f}%{_override_note})"
             )
         else:
             st.success(
-                f"\u2705 **Design Freeze: SAFE** \u2014 Proceeding to optimization. "
-                f"(DI = {freeze_result['DI']:.1f}%{_override_note})"
+                f"\u2705 **Procurement Volatility Guard: SAFE** \u2014 Proceeding to optimization. "
+                f"(PRI = {freeze_result['DI']:.1f}%{_override_note})"
             )
     else:
-        st.info("\u2139\ufe0f freeze_guard.py not found \u2014 Design Freeze check skipped.")
+        st.info("\u2139\ufe0f freeze_guard.py not found \u2014 Procurement Volatility Check skipped.")
         st.session_state.freeze_result = None
         st.session_state["freeze_source_file"] = _freeze_file_key
         st.session_state["df_freeze_active"] = df_floors.copy()
@@ -1940,7 +1998,7 @@ if st.session_state.results_ready:
     if freeze_result is None:
         st.info(
             "ℹ\ufe0f Upload a project file and run the engine to see "
-            "Design Freeze Analysis."
+            "Procurement Volatility Analysis."
         )
     elif freeze_result is not None:
         def _cv_label(cv):
@@ -1954,14 +2012,14 @@ if st.session_state.results_ready:
         st.markdown(f"""
         <div class='callout-orange' style='margin-bottom:16px;'>
           <b style='color:{status_color}; font-size:1.02rem;'>
-            &#x1F512; Design Freeze Guard &nbsp;|&nbsp;
+            &#x1F512; Procurement Volatility Guard &nbsp;|&nbsp;
             Status: {freeze_result['status']}
-            &nbsp;&mdash;&nbsp; DI = {freeze_result['DI']:.1f}%
+            &nbsp;&mdash;&nbsp; PRI = {freeze_result['DI']:.1f}%
           </b><br>
           <span style='font-size:0.85rem; color:#7B8A9E;'>{freeze_result['recommendation']}</span>
           <table class='custom-table' style='margin-top:10px; width:60%;'>
             <tr>
-              <th>Feature</th><th>CV (%)</th><th>Contribution to DI</th>
+              <th>Feature</th><th>CV (%)</th><th>Contribution to PRI</th>
             </tr>
             <tr>
               <td>slab_area_sqm</td>
@@ -1988,7 +2046,7 @@ if st.session_state.results_ready:
         _fig_gauge = _go_gauge.Figure(_go_gauge.Indicator(
             mode="gauge+number",
             value=_di_val,
-            title={"text": "Design Instability Index (DI %)"},
+            title={"text": "Procurement Risk Index (PRI %)"},
             number={"suffix": "%", "font": {"size": 42}},
             gauge={
                 "axis": {"range": [0, 30]},
@@ -2013,14 +2071,14 @@ if st.session_state.results_ready:
         )
         st.plotly_chart(_fig_gauge, use_container_width=True)
         st.caption(
-            "Green: DI \u2264 10% (SAFE) | "
+            "Green: PRI \u2264 10% (SAFE) | "
             "Yellow: 10\u201315% (WARNING) | "
             "Red: > 15% (HALT) | "
             "Threshold: Ibbs (1997)"
         )
 
         # ── STEP 4: Unstable floor table
-        st.subheader("Floors Driving Instability")
+        st.subheader("Floors With High Revision Risk")
         _unstable = identify_unstable_floors(df_floors)
 
         # Fix 1.1 — MAD Override Flag: show info banner for excepted floors
@@ -2033,8 +2091,8 @@ if st.session_state.results_ready:
                     df_floors["floor_override"] == True, "floor_id"  # noqa: E712
                 ].tolist()
                 st.info(
-                    f"\u2139\ufe0f {_n_overridden} floor(s) marked as intentional design "
-                    f"exceptions and excluded from instability detection: "
+                    f"\u2139\ufe0f {_n_overridden} floor(s) marked as intentional architectural "
+                    f"exceptions and excluded from revision risk detection: "
                     f"{', '.join(str(x) for x in _overridden_ids)}. "
                     "Source: Montgomery (2019) Ch.6 \u2014 operator override "
                     "for known special causes."
@@ -2069,23 +2127,23 @@ if st.session_state.results_ready:
             )
             _rw_col1, _rw_col2 = st.columns(2)
             _rw_col1.metric(
-                "Rework cost if you order now",
+                "Cost exposure if drawings are revised after ordering",
                 f"Rs {_rework['rework_cost_order_now'] / 1e7:.2f} Cr",
                 help="Ibbs (1997): ~30% cost overrun on procurement "
-                     "done before design freeze.",
+                     "done before drawings are confirmed-for-construction.",
             )
             _rw_col2.metric(
-                "Savings if you wait 2 weeks",
+                "Potential saving by confirming drawings first",
                 f"Rs {_rework['savings_if_wait_2w'] / 1e7:.2f} Cr",
                 help="Conservative estimate: 80% of rework avoided "
-                     "if procurement delayed until DI < 10%.",
+                     "if procurement delayed until PRI < 10%.",
             )
             _n_unstable_floors = len(
                 set(u["floor_id"] for u in _unstable)
             )
             st.info(
                 f"Panels at risk: {_rework['panels_at_risk']} panels "
-                f"across {_n_unstable_floors} unstable floor(s). "
+                f"across {_n_unstable_floors} high-revision-risk floor(s). "
                 "Ibbs (1997) Table 3."
             )
 
@@ -2094,7 +2152,7 @@ if st.session_state.results_ready:
         # Montgomery (2019) Ch.6: sustained multi-feature deviation
         # (CV > 10% on ≥2 features) upgrades the estimate one level.
         # Fix 1.2: use df_freeze_active so CV calculation matches DI gauge.
-        st.subheader("Design Change Probability")
+        st.subheader("Drawing Revision Probability")
         _df_for_prob = st.session_state.get("df_freeze_active", df_floors)
         _prob = compute_change_probability(_df_for_prob, freeze_result["DI"])
         _color_map = {"LOW": "#22C55E", "MODERATE": "#F59E0B", "HIGH": "#EF4444"}
@@ -2118,12 +2176,12 @@ if st.session_state.results_ready:
             )
         st.caption(
             "Probability bands derived from Ibbs (1997): "
-            "DI \u2264 10% \u2192 LOW (15%) | 10\u201315% \u2192 MODERATE (45%) | >15% \u2192 HIGH (78%). "
+            "PRI \u2264 10% \u2192 LOW (15%) | 10\u201315% \u2192 MODERATE (45%) | >15% \u2192 HIGH (78%). "
             "Upgraded one level when \u22652 features show sustained CV > 10%."
         )
 
         # ── DI Trend Prediction ──────────────────────────────────────
-        st.subheader("Design change trend prediction")
+        st.subheader("Drawing revision trend prediction")
         _di_hist = st.session_state.get("di_history", [])
         _pred = predict_design_change_risk(_di_hist)
 
@@ -2155,8 +2213,8 @@ if st.session_state.results_ready:
             })
             st.line_chart(_hist_df)
             st.caption(
-                "DI history across uploads. Risk threshold = 10% "
-                "(Ibbs 1997 — procurement risk inflection point)."
+                "PRI history across uploads. Risk threshold = 10% "
+                "(Ibbs 1997 \u2014 procurement risk inflection point)."
             )
 
         st.caption(_pred["citation"])
@@ -2202,9 +2260,9 @@ if st.session_state.results_ready:
     else:
         st.markdown(f"""
         <div class='callout-red'>
-          <b style='color:#EF4444; font-size:1.05rem;'>⚠️ DESIGN FREEZE INTELLIGENCE ALERT</b><br>
+          <b style='color:#EF4444; font-size:1.05rem;'>⚠️ PROCUREMENT VOLATILITY ALERT</b><br>
           Repetition Score <b>{rep_score}%</b> is below threshold of <b>{repetition_threshold}%</b>.
-          High design variability detected. <b>Recommend delaying bulk procurement</b> until design stabilizes.
+          High drawing revision risk detected. <b>Recommend delaying bulk procurement</b> until design stabilizes.
         </div>
         """, unsafe_allow_html=True)
 
@@ -2506,7 +2564,7 @@ if st.session_state.results_ready:
 
         # Design Freeze Module
 
-        st.markdown("<div class='section-header'>🔒 Design Freeze Intelligence</div>", unsafe_allow_html=True)
+        st.markdown("<div class='section-header'>🔒 Procurement Volatility Intelligence</div>", unsafe_allow_html=True)
         st.markdown(f"""
         <div class='callout-teal'>
           <b>Simulating 3 design revision cycles...</b><br>
@@ -2554,8 +2612,8 @@ if st.session_state.results_ready:
         # Montgomery (2019) Ch.6: control signals must be hierarchical, not contradictory.
         # Repetition Score stability is a valid secondary signal, but must never override DI.
         st.caption(
-            "ℹ️ Note: Repetition Score stability (chart above) measures design revision consistency — "
-            "a secondary signal. The Design Instability Index (DI) in the freeze guard above "
+            "\u2139\ufe0f Note: Repetition Score stability (chart above) measures design revision consistency \u2014 "
+            "a secondary signal. The Procurement Risk Index (PRI) in the Procurement Volatility Guard above "
             "is the primary procurement gate. Source: Ibbs (1997), Montgomery (2019) Ch.6."
         )
 
@@ -2580,27 +2638,27 @@ if st.session_state.results_ready:
 
             if _rep_freeze_status == "SAFE":
                 st.success(
-                    f"✅ Repetition Score is stable across design revisions "
-                    f"(variation {drop:.1f}pp ≤ 15pp). "
-                    f"DI is also in SAFE zone ({_rep_di_val:.1f}%). "
+                    f"\u2705 Repetition Score is stable across design revisions "
+                    f"(variation {drop:.1f}pp \u2264 15pp). "
+                    f"PRI is also in SAFE zone ({_rep_di_val:.1f}%). "
                     "Procurement can proceed. "
                     "Source: Ibbs (1997), Montgomery (2019) Ch.6."
                 )
             elif _rep_freeze_status == "WARNING":
                 st.warning(
-                    f"⚠️ Repetition Score is stable across revisions (variation {drop:.1f}pp), "
-                    f"but DI is in WARNING zone ({_rep_di_val:.1f}%, threshold 10–15%). "
-                    "Procure stable clusters only. "
+                    f"\u26a0\ufe0f Repetition Score is stable across revisions (variation {drop:.1f}pp), "
+                    f"but PRI is in WARNING zone ({_rep_di_val:.1f}%, threshold 10\u201315%). "
+                    "Procure low-risk clusters only. "
                     "Do not interpret repetition stability as full clearance. "
                     "Source: Ibbs (1997)."
                 )
             else:  # HALT
                 st.error(
-                    f"❌ Repetition Score variation is low ({drop:.1f}pp), "
-                    f"but DI exceeds 15% — HALT zone ({_rep_di_val:.1f}%). "
-                    "Repetition stability does not override the freeze guard. "
-                    "Do not proceed with procurement until DI drops below 10%. "
-                    "Source: Ibbs (1997) — DI is the primary procurement gate."
+                    f"\u274c Repetition Score variation is low ({drop:.1f}pp), "
+                    f"but PRI exceeds 15% \u2014 HALT zone ({_rep_di_val:.1f}%). "
+                    "Repetition stability does not override the Procurement Volatility Guard. "
+                    "Verify drawings are final before committing budget. "
+                    "Source: Ibbs (1997) \u2014 PRI is the primary procurement gate."
                 )
 
         # ── Standard vs Custom Panel Analysis ────────────────────────────
@@ -2793,17 +2851,17 @@ if st.session_state.results_ready:
 
         if _tab2_freeze_status == "HALT":
             st.warning(
-                f"⚠️ **Design Instability Index exceeds 15% — HALT zone "
-                f"(DI = {_tab2_freeze_di:.1f}%).** "
+                f"⚠️ **Procurement Risk Index exceeds 15% — HALT zone "
+                f"(PRI = {_tab2_freeze_di:.1f}%).** "
                 "Results shown are indicative only — procurement decisions "
-                "should await design freeze. "
+                "should be deferred until drawings are confirmed final. "
                 "Source: Ibbs (1997) — freeze guard is advisory; "
                 "engineer retains procurement authority."
             )
         elif _tab2_freeze_status == "WARNING":
             st.info(
-                f"ℹ\ufe0f **Design Instability Index is in WARNING zone "
-                f"(DI = {_tab2_freeze_di:.1f}%, threshold 10–15%).** "
+                f"ℹ\ufe0f **Procurement Risk Index is in WARNING zone "
+                f"(PRI = {_tab2_freeze_di:.1f}%, threshold 10–15%).** "
                 "Consider procuring stable clusters only. "
                 "Source: Ibbs (1997)."
             )
@@ -3045,7 +3103,7 @@ if st.session_state.results_ready:
         )
 
         change_pct = st.slider(
-            "Design change magnitude (%)",
+            "Schedule or drawing change magnitude (%)",
             min_value=0, max_value=30, value=0, step=5,
             key="whatif_slider",
             help="Simulates increasing week_cost and procure qty "
@@ -3230,11 +3288,19 @@ if st.session_state.results_ready:
             # ── STEP 4: PDF Export button ─────────────────────────────────
             st.markdown("---")
             if st.button("\U0001f4c4 Export BoQ as PDF", key="export_boq_pdf_btn"):
+                # Always read LP cost metrics directly from lp_results (persists across reruns).
+                # Individual session_state keys (optimized_total, baseline_total, savings) are
+                # only written during the optimizer run and may be absent on subsequent reruns.
+                _lp = st.session_state.lp_results
+                _pdf_opt_total  = float(_lp.get("optimized_total", _lp.get("opt_total", 0)))
+                _pdf_base_total = float(_lp.get("baseline_total",  _lp.get("trad_total", 0)))
+                _pdf_savings    = float(_lp.get("savings", 0))
+                _pdf_sav_pct    = float(_lp.get("savings_pct", 0))
                 _metrics = {
-                    "optimized_cr":      st.session_state.get("optimized_total", 0) / 1e7,
-                    "baseline_cr":       st.session_state.get("baseline_total", 0) / 1e7,
-                    "savings_cr":        st.session_state.get("savings", 0) / 1e7,
-                    "savings_pct":       st.session_state.get("savings_pct", 0),
+                    "optimized_cr":      _pdf_opt_total  / 1e7,
+                    "baseline_cr":       _pdf_base_total / 1e7,
+                    "savings_cr":        _pdf_savings    / 1e7,
+                    "savings_pct":       _pdf_sav_pct,
                     "overall_reuse_rate": st.session_state.get("overall_reuse_rate", 0),
                     "di_value":          st.session_state.get("di_value", 0),
                     "di_status":         st.session_state.get("di_status", "N/A"),
@@ -3479,8 +3545,8 @@ if st.session_state.results_ready:
           <tr><td>Carrying Cost (₹500 Cr project)</td><td>₹3–5 Cr</td><td class='td-green'>₹1.5–2 Cr</td><td class='td-green'>~55% lower</td></tr>
           <tr><td>Repetition Score (measured)</td><td>Not tracked</td><td class='td-orange'>{rep_score}%</td><td class='td-green'>New KPI created</td></tr>
           <tr><td><b>Total Formwork Cost Saving</b></td><td><b>Baseline</b></td>
-              <td class='td-green'><b>₹{savings_cr:.2f} Cr</b></td>
-              <td class='td-green'><b>{saving_pct:.1f}% reduction</b></td>
+              <td class='td-green'><b>₹{_savings_vs_exp:.2f} Cr</b></td>
+              <td class='td-green'><b>{_pct_vs_exp:.1f}% reduction</b></td>
           </tr>
         </table>
         """, unsafe_allow_html=True)
@@ -3489,9 +3555,9 @@ if st.session_state.results_ready:
         st.markdown("<div class='section-header'>🆕 Novelty Features</div>", unsafe_allow_html=True)
         nov1, nov2, nov3 = st.columns(3)
         novelties = [
-            (nov1, "🔒 Design Freeze Intelligence", TEAL,
-             "Monitors BIM version history. Flags if Repetition Score drops >15% between design iterations. "
-             "Delays procurement until design stability threshold is reached. Converts risk into a quantified trigger."),
+            (nov1, "\ud83d\udd12 Procurement Volatility Guard", TEAL,
+             "Monitors drawing revision cycles. Flags if Procurement Risk Index exceeds threshold between design iterations. "
+             "Delays procurement until drawing set stability is confirmed. Converts revision risk into a quantified procurement trigger."),
             (nov2, "📡 Panel Digital Twin", ORANGE,
              "QR/RFID code per panel tracks deployment, removal, inspection cycles in real-time. "
              "Predictive maintenance alerts: 'Batch F-240 due for inspection after next use.'"),
@@ -3604,7 +3670,7 @@ Birge, J.R. & Louveaux, F. (2011). *Introduction to Stochastic Programming*
 """)
             st.caption(
                 "Judge answer: 'Current LP is deterministic — optimal given known inputs. "
-                "The Design Change Probability Indicator from Gap 3 is the direct input "
+                "The Drawing Revision Probability Indicator from Gap 3 is the direct input "
                 "to the stochastic upgrade in Phase 2. Citation: Birge & Louveaux (2011).'"
             )
 
@@ -3622,7 +3688,7 @@ Birge, J.R. & Louveaux, F. (2011). *Introduction to Stochastic Programming*
         when to order, and how much you'll save, before a single slab is poured."
       </div>
       <div style='margin-top:20px; display:flex; justify-content:center; gap:24px; flex-wrap:wrap;'>
-        <span style='color:#22C55E; font-weight:700;'>₹{savings_cr:.2f} Cr savings</span>
+        <span style='color:#22C55E; font-weight:700;'>₹{_savings_vs_exp:.2f} Cr savings</span>
         <span style='color:#7B8A9E;'>·</span>
         <span style='color:#F59E0B; font-weight:700;'>+22pp utilization</span>
         <span style='color:#7B8A9E;'>·</span>
@@ -3824,11 +3890,17 @@ Birge, J.R. & Louveaux, F. (2011). *Introduction to Stochastic Programming*
             if "estimated_delivery_week" not in _t7_del.columns:
                 _t7_del = _t7_del.copy()
                 _t7_del["estimated_delivery_week"] = _t7_del.get("week", 0) + 2
+            # Always read LP cost metrics directly from lp_results (persists across reruns).
+            _t7_lp = st.session_state.lp_results
+            _t7_opt_total  = float(_t7_lp.get("optimized_total", _t7_lp.get("opt_total", 0)))
+            _t7_base_total = float(_t7_lp.get("baseline_total",  _t7_lp.get("trad_total", 0)))
+            _t7_savings    = float(_t7_lp.get("savings", 0))
+            _t7_sav_pct    = float(_t7_lp.get("savings_pct", 0))
             _t7_metrics = {
-                "optimized_cr":           st.session_state.get("optimized_total", 0) / 1e7,
-                "baseline_cr":            st.session_state.get("baseline_total", 0) / 1e7,
-                "savings_cr":             st.session_state.get("savings", 0) / 1e7,
-                "savings_pct":            st.session_state.get("savings_pct", 0),
+                "optimized_cr":           _t7_opt_total  / 1e7,
+                "baseline_cr":            _t7_base_total / 1e7,
+                "savings_cr":             _t7_savings    / 1e7,
+                "savings_pct":            _t7_sav_pct,
                 "overall_reuse_rate":     st.session_state.get("overall_reuse_rate", 0),
                 "di_value":               st.session_state.get("di_value", 0),
                 "di_status":              st.session_state.get("di_status", "SAFE"),
@@ -3840,45 +3912,47 @@ Birge, J.R. & Louveaux, F. (2011). *Introduction to Stochastic Programming*
                 "kit_count":              st.session_state.get("kit_count", 0),
                 "highest_reuse_kit":      st.session_state.get("highest_reuse_kit", "N/A"),
             }
-            if st.button("⬇️ Download PDF Report", key="tab7_pdf_btn"):
-                # Build kit_specs for Tab 7
-                _t7_kit_specs = {}
-                _t7_df_kit = st.session_state.get(
-                    "df_floors_is456", st.session_state.get("df_floors", pd.DataFrame())
+            # Build kit_specs for Tab 7
+            _t7_kit_specs = {}
+            _t7_df_kit = st.session_state.get(
+                "df_floors_is456", st.session_state.get("df_floors", pd.DataFrame())
+            )
+            _t7_cov = {
+                "slab":  st.session_state.get("coverage_slab",  1.2),
+                "col":   st.session_state.get("coverage_col",   0.9),
+                "beam":  st.session_state.get("coverage_beam",  0.6),
+                "stair": st.session_state.get("coverage_stair", 0.5),
+            }
+            if "cluster" in _t7_df_kit.columns:
+                for _t7pid in _t7_df_kit["cluster"].unique():
+                    if _t7pid == -1:
+                        continue
+                    _t7_pc_df = _t7_df_kit[_t7_df_kit["cluster"] == _t7pid]
+                    _t7_pk = compute_kit_specification(_t7_pc_df, _t7_cov)
+                    if _t7_pk:
+                        _t7_kit_specs[int(_t7pid)] = _t7_pk
+            # Generate PDF eagerly (no two-step button) so st.download_button always has data.
+            # Two-step pattern (button → download_button) fails because the second rerun
+            # re-evaluates the outer if st.button → False → download button disappears.
+            try:
+                _t7_pdf = generate_boq_pdf(
+                    boq_df=_t7_boq,
+                    delivery_df=_t7_del,
+                    metrics=_t7_metrics,
+                    project_name=project_name,
+                    sensitivity_df=st.session_state.get("sensitivity_df"),
+                    kit_specs=_t7_kit_specs if _t7_kit_specs else None,
                 )
-                _t7_cov = {
-                    "slab":  st.session_state.get("coverage_slab",  1.2),
-                    "col":   st.session_state.get("coverage_col",   0.9),
-                    "beam":  st.session_state.get("coverage_beam",  0.6),
-                    "stair": st.session_state.get("coverage_stair", 0.5),
-                }
-                if "cluster" in _t7_df_kit.columns:
-                    for _t7pid in _t7_df_kit["cluster"].unique():
-                        if _t7pid == -1:
-                            continue
-                        _t7_pc_df = _t7_df_kit[_t7_df_kit["cluster"] == _t7pid]
-                        _t7_pk = compute_kit_specification(_t7_pc_df, _t7_cov)
-                        if _t7_pk:
-                            _t7_kit_specs[int(_t7pid)] = _t7_pk
-                try:
-                    _t7_pdf = generate_boq_pdf(
-                        boq_df=_t7_boq,
-                        delivery_df=_t7_del,
-                        metrics=_t7_metrics,
-                        project_name=project_name,
-                        sensitivity_df=st.session_state.get("sensitivity_df"),
-                        kit_specs=_t7_kit_specs if _t7_kit_specs else None,
-                    )
-                    st.download_button(
-                        label="⬇️ Download PDF",
-                        data=_t7_pdf,
-                        file_name=f"FormOptiX_BoQ_{project_name.replace(' ', '_')}.pdf",
-                        mime="application/pdf",
-                        key="tab7_pdf_dl",
-                    )
-                    st.success("PDF generated with Sensitivity Analysis on Page 4!")
-                except Exception as _e:
-                    st.error(f"PDF generation failed: {_e}")
+                st.download_button(
+                    label="⬇️ Download PDF Report",
+                    data=_t7_pdf,
+                    file_name=f"FormOptiX_BoQ_{project_name.replace(' ', '_')}.pdf",
+                    mime="application/pdf",
+                    key="tab7_pdf_dl",
+                )
+                st.success("PDF generated with Sensitivity Analysis on Page 4!")
+            except Exception as _e:
+                st.error(f"PDF generation failed: {_e}")
         else:
             st.warning("Run the engine in Tab 2 first.")
 
@@ -3954,7 +4028,7 @@ Birge, J.R. & Louveaux, F. (2011). *Introduction to Stochastic Programming*
             key="chk_engine",
         )
         st.checkbox(
-            "Design Freeze Guard reviewed",
+            "Procurement Volatility Guard reviewed",
             value=_di_ready,
             disabled=True,
             key="chk_di",

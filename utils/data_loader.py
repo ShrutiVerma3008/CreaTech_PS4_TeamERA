@@ -103,6 +103,18 @@ def validate_and_map(df, col_map, stripping_standard: str = "IS456"):
         "slab_area_m2", "wall_length_m", "col_count", "panel_type"
     ]
 
+    # ── Auto-derive wall_length_m if absent (bridge/pier datasets) ───────
+    # Peurifoy & Oberlender (2010): wall/pier formwork perimeter can be
+    # approximated as sqrt(slab/formwork area) × π for circular piers, or
+    # 2√(area) for rectangular sections. We use 2√(area) as a safe lower bound.
+    if "wall_length_m" not in df.columns and "slab_area_m2" in df.columns:
+        df["wall_length_m"] = (df["slab_area_m2"] ** 0.5 * 2.0).round(2)
+        st.info(
+            "ℹ️ **wall_length_m** not mapped — auto-derived from formwork area "
+            "(wall_length = 2 × √area). For pier/bridge datasets this is a "
+            "safe structural approximation (Peurifoy & Oberlender, 2010)."
+        )
+
     missing = [c for c in required_cols if c not in df.columns]
     if missing:
         # strip_week is auto-generated below if absent — not a hard stop
@@ -139,11 +151,23 @@ def validate_and_map(df, col_map, stripping_standard: str = "IS456"):
         st.error(f"Missing values found in rows: {bad_rows}. Fill these before uploading.")
         st.stop()
 
-    # Check B — floor_id has no duplicates
+    # Check B — floor_id uniqueness
+    # For bridge/pier datasets, Pier ID repeats per lift (one row per lift per pier).
+    # We auto-create a composite key rather than stopping — warn the user.
     if df["floor_id"].duplicated().any():
-        dupes = df[df["floor_id"].duplicated()]["floor_id"].tolist()
-        st.error(f"Duplicate floor IDs found: {dupes}. Each floor must appear once.")
-        st.stop()
+        n_dupes = df["floor_id"].duplicated().sum()
+        st.warning(
+            f"⚠️ {n_dupes} duplicate floor_id values detected. "
+            "This is normal for bridge/pier datasets (one row per lift). "
+            "A unique composite ID (floor_id + row index) has been applied automatically."
+        )
+        # Create composite key: original id + underscore + lift/row index
+        df = df.copy()
+        df["floor_id"] = (
+            df["floor_id"].astype(str)
+            + "_L"
+            + df.groupby("floor_id").cumcount().add(1).astype(str)
+        )
 
     # Check C — schedule logic: strip_week >= week_end for every row
     bad_strip = df[df["strip_week"] < df["week_end"]]

@@ -157,7 +157,7 @@ def _page1_summary(story, styles, metrics, project_name):
          f"Rs {metrics.get('experienced_baseline_cr', 0):.2f} Cr  (35% reuse assumed)"],
         ["Panel Reuse Rate",
          f"{metrics.get('overall_reuse_rate', 0) * 100:.1f}%"],
-        ["Design Instability Index (DI)",
+        ["Procurement Risk Index (PRI)",
          (f"{metrics.get('di_value', 0):.1f}%  "
           f"({metrics.get('di_status', 'N/A')})")],
         # Step 4 — Custom panel metrics (Peurifoy & Oberlender 2010)
@@ -440,13 +440,18 @@ def _page4_methodology(story, styles, page_num=4):
             "USE: Validates per-week decision variable structure for construction scheduling.",
         ),
         (
-            "Design Freeze — CV Method",
+            "Procurement Volatility Guard — CV Method",
             "Ibbs, C.W. (1997). Quantitative impacts of project change. "
             "J. Construction Engineering and Management, 123(3), 308-311. "
             "USE: 60 projects — scope variance >15% gives 3x rework cost multiplier. "
-            "FormOptiX sets DI=15% as the HALT threshold. "
+            "FormOptiX sets PRI=15% as the HALT threshold. "
             "Also: Montgomery, D.C. (2019). Introduction to Statistical Quality Control (8th ed.). "
-            "USE: CV as a statistical uniformity proxy for floor geometry.",
+            "USE: CV as a statistical uniformity proxy for floor geometry. "
+            "Note: PRI does not evaluate design quality or correctness. "
+            "It measures the statistical likelihood that Drawing Revision "
+            "is still in progress for high-variance floors — i.e. the floor-level "
+            "revision risk based on geometric variance documented in Ibbs (1997). "
+            "Floors with high revision risk are flagged for deferred procurement.",
         ),
         (
             "Formwork Standards",

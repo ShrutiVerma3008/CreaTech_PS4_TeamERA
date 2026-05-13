@@ -26,17 +26,17 @@ automatically."
 
 ## Minute 2 — The Three Pillars (1:00–2:00)
 
-### Pillar 1 — Design Freeze Guard (Tab 1, top section)
-SHOW: DI gauge chart
+### Pillar 1 — Procurement Volatility Guard (Tab 1, top section)
+SHOW: PRI gauge chart
 
 SAY: "Before we order a single panel, we check if the
-drawings are stable enough to procure. Our Design
-Instability Index is based on Ibbs (1997) — projects
-above 15% DI show 3x higher rework costs."
+drawings are stable enough to procure. Our Procurement
+Risk Index is based on Ibbs (1997) — projects
+above 15% PRI show 3x higher rework costs."
 
 POINT TO: The gauge needle and the green/yellow/red zones.
 
-SAY: "For this project the DI is [read value]% — that
+SAY: "For this project the PRI is [read value]% — that
 means [SAFE: proceed / WARNING: partial / HALT: wait]."
 
 ### Pillar 2 — Floor Clustering (Tab 1, middle section)
@@ -60,7 +60,7 @@ SHOW: Move the what-if slider to 15%
 
 SAY: "If design changes by 15% mid-project, that saving
 drops to Rs [new value] Cr. The tool shows you the cost
-of design instability in rupees, before it happens."
+of drawing revision risk in rupees, before it happens."
 
 ---
 
@@ -86,7 +86,7 @@ rate on Rs 40 Cr of formwork saves Rs 4 Cr per project."
 
 ## Anticipated judge questions
 
-Q: "Is the 15% DI threshold arbitrary?"
+Q: "Is the 15% PRI threshold arbitrary?"
 A: "No. It is calibrated from Ibbs (1997) which studied
 60 construction projects and found the rework cost curve
 inflects sharply at 15% scope variance."
@@ -120,7 +120,7 @@ solvers are a straightforward drop-in upgrade."
 ---
 
 ## Numbers to memorize before presenting
-- DI threshold: 15% (Ibbs, 1997)
+- PRI threshold: 15% (Ibbs, 1997)
 - Reuse benchmark: 60-80% (Peurifoy & Oberlender, 2010)
 - Rework penalty factor: 30% (Ibbs, 1997, Table 3)
 - MAD threshold: 2.5× (Leys et al., 2013)
