@@ -515,9 +515,9 @@ def predict_design_change_risk(di_history: list) -> dict:
 
 # Probability band definitions (Ibbs 1997 inflection points):
 _PROB_BANDS = {
-    "LOW":      {"pct": 15, "label": "LOW — design likely stable"},
-    "MODERATE": {"pct": 45, "label": "MODERATE — monitor weekly"},
-    "HIGH":     {"pct": 78, "label": "HIGH — late design change likely"},
+    "LOW":      {"pct": 15, "label": "LOW — low procurement revision likely"},
+    "MODERATE": {"pct": 45, "label": "MODERATE — moderate procurement revision likely"},
+    "HIGH":     {"pct": 78, "label": "HIGH — high procurement revision likely"},
 }
 
 _PROB_ORDER = ["LOW", "MODERATE", "HIGH"]   # upgrade direction
