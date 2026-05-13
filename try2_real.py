@@ -1606,7 +1606,24 @@ if mode == "Real Site Data":
                     axis=1,
                 )
             )
-            
+
+            # ── Store column-mapped floors for engine use ──────────────────
+            # Normalize to pipeline-canonical names (same as load_real_project_data)
+            _cm_rename = {}
+            if "slab_area_m2" in df_raw.columns and "slab_area_sqm" not in df_raw.columns:
+                _cm_rename["slab_area_m2"] = "slab_area_sqm"
+            if "col_count" in df_raw.columns and "column_count" not in df_raw.columns:
+                _cm_rename["col_count"] = "column_count"
+            _df_mapped = df_raw.rename(columns=_cm_rename).copy()
+            if "floor_name" not in _df_mapped.columns:
+                _df_mapped["floor_name"] = _df_mapped["floor_id"].astype(str)
+            if "floor_type" not in _df_mapped.columns:
+                _df_mapped["floor_type"] = "Typical"
+            if "beam_count" not in _df_mapped.columns:
+                _df_mapped["beam_count"] = 0
+            st.session_state["df_col_mapped"]      = _df_mapped
+            st.session_state["df_col_mapped_file"] = uploaded_file.name
+
         except Exception as e:
             st.error(f"Failed to read file: {e}")
 
@@ -1695,11 +1712,27 @@ if run_btn:
             if uploaded_file is None:
                 st.warning("⚠️ Please upload an Excel file first.")
                 st.stop()
-            df_floors, df_schedule = load_real_project_data(
-                uploaded_file, strip_buffer_weeks=int(strip_buffer)
+            # ── Use pre-mapped DataFrame if available for this upload ──────
+            # The column mapping UI (above) stores the renamed/validated df.
+            # Re-reading the raw file would lose the mapping — use cache instead.
+            _mapped_ready = (
+                "df_col_mapped" in st.session_state
+                and st.session_state.get("df_col_mapped_file") == uploaded_file.name
             )
-            if df_floors is None:
-                st.stop()
+            if _mapped_ready:
+                df_floors   = st.session_state["df_col_mapped"].copy()
+                df_schedule = _aggregate_schedule_from_floors(
+                    df_floors, int(strip_buffer)
+                )
+                st.info(
+                    f"\u2705 Using column-mapped data — {len(df_floors)} rows loaded."
+                )
+            else:
+                df_floors, df_schedule = load_real_project_data(
+                    uploaded_file, strip_buffer_weeks=int(strip_buffer)
+                )
+                if df_floors is None:
+                    st.stop()
 
             # ── Data Quality Score (Real Mode only) ──────────────
             dq_score, dq_warnings = compute_data_quality(df_floors, df_schedule)
